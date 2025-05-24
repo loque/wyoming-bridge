@@ -47,27 +47,28 @@ class WakeBridgeEventHandler(AsyncEventHandler):
         try:
             while True:
                 event = await self.wake_client.read_event()
+
                 if event is None:
-                    _LOGGER.debug("Client disconnected")
+                    _LOGGER.debug("[CLIENT] Disconnected")
                     break  # Client disconnected
 
                 if Detect.is_type(event.type):
-                    _LOGGER.debug("Received client event: %s", event.type)
-                    # Forward the detection event to the Wyoming server
+                    _LOGGER.debug("[CLIENT] Event: %s", event.type)
                     await self.write_event(event)
+
                 elif NotDetected.is_type(event.type):
-                    _LOGGER.debug(
-                        "Received client event: %s", event.type)
-                    # Forward the not detected event to the Wyoming server
+                    _LOGGER.debug("[CLIENT] Event: %s", event.type)
                     await self.write_event(event)
+
                 elif Describe.is_type(event.type):
-                    _LOGGER.debug("Received client event: %s", event.type)
-                    # Forward the describe event to the Wyoming server
+                    _LOGGER.debug("[CLIENT] Event: %s", event.type)
                     await self.write_event(event)
+
                 else:
-                    _LOGGER.debug("Unexpected client event: type=%s, data=%s",
+                    _LOGGER.debug("[CLIENT] Unexpected event: type=%s, data=%s",
                                   event.type, event.data)
                     await self.write_event(event)
+
         except asyncio.CancelledError:
             _LOGGER.debug("Client listener task cancelled.")
             pass
@@ -76,29 +77,27 @@ class WakeBridgeEventHandler(AsyncEventHandler):
         """Handle Wyoming server events."""
 
         if Describe.is_type(event.type):
-            # await self.write_event(self.wyoming_info_event)
+            _LOGGER.debug("[SERVER] Event: %s", event.type)
             await self.wake_client.write_event(event)
-            _LOGGER.debug("Info sent to client")
+
         elif Detect.is_type(event.type):
-            # Forward the detection event to the wake service
-            _LOGGER.debug("Forwarding detection event to wake service")
+            _LOGGER.debug("[SERVER] Event: %s", event.type)
             await self.wake_client.write_event(event)
 
         elif AudioStart.is_type(event.type):
-            # Forward the audio start event to the wake service
-            _LOGGER.debug("Forwarding audio start event to wake service")
+            _LOGGER.debug("[SERVER] Event: %s", event.type)
             await self.wake_client.write_event(event)
 
         elif AudioChunk.is_type(event.type):
-            # Forward the audio chunk event to the wake service
             # _LOGGER.debug("Forwarding audio chunk event to wake service")
             await self.wake_client.write_event(event)
+
         elif AudioStop.is_type(event.type):
-            # Forward the audio stop event to the wake service
-            _LOGGER.debug("Forwarding audio stop event to wake service")
+            _LOGGER.debug("[SERVER] Event: %s", event.type)
             await self.wake_client.write_event(event)
+
         else:
-            _LOGGER.debug("Unexpected event: type=%s, data=%s",
+            _LOGGER.debug("[SERVER] Unexpected event: type=%s, data=%s",
                           event.type, event.data)
 
         return True
