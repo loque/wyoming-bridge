@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import argparse
 import asyncio
-from functools import partial
 import logging
 import signal
 import contextlib

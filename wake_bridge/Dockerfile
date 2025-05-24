@@ -1,0 +1,35 @@
+# Wyoming Wake Bridge Docker Image
+# 
+# Build: docker build -t wyoming-wake-bridge .
+# Run: docker run -p 5004:5004 wyoming-wake-bridge --wake-uri tcp://wake-service:10400
+#
+FROM python:3.12-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies if needed
+RUN apt-get update && apt-get install -y \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements first for better Docker layer caching
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the wake_bridge module
+COPY . wake_bridge/
+
+# Create a non-root user for security
+RUN useradd --create-home --shell /bin/bash app && \
+    chown -R app:app /app
+USER app
+
+# Expose the default port (configurable via --uri)
+EXPOSE 5004
+
+# Set the default command to run the wake_bridge module
+# Required: --wake-uri must be provided when running the container
+# Example: docker run wyoming-wake-bridge --wake-uri tcp://wake-service:10400
+CMD ["python", "-m", "wake_bridge", "--uri", "tcp://0.0.0.0:5004"]
