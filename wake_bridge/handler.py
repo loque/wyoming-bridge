@@ -1,9 +1,9 @@
 import asyncio
 import logging
 
-from wyoming.audio import AudioChunk, AudioStart, AudioStop
+from wyoming.audio import AudioChunk
 from wyoming.wake import Detect, NotDetected
-from wyoming.info import Info, Describe
+from wyoming.info import Info
 from wyoming.event import Event
 from wyoming.client import AsyncClient
 from wyoming.server import AsyncEventHandler
@@ -16,88 +16,71 @@ class WakeBridgeEventHandler(AsyncEventHandler):
 
     def __init__(
         self,
-        wyoming_info: Info,
-        wake_client: AsyncClient,
+        target: AsyncClient,
         *args,
         **kwargs,
     ) -> None:
         super().__init__(*args, **kwargs)
 
-        self.wyoming_info_event = wyoming_info.event()
-        self.wake_client = wake_client
-        self._client_listener_task = asyncio.create_task(
-            self._listen_to_client())
+        self.target = target
+        self._target_listener_task = asyncio.create_task(
+            self._listen_to_target())
         self._closed = False
 
     async def shutdown(self):
-        """Cancel the client listener task and wait for it to finish."""
+        """Cancel the target listener task and wait for it to finish."""
         if self._closed:
             return
         self._closed = True
-        if self._client_listener_task:
-            self._client_listener_task.cancel()
+        if self._target_listener_task:
+            self._target_listener_task.cancel()
             try:
-                await self._client_listener_task
+                await self._target_listener_task
             except asyncio.CancelledError:
                 pass
 
-    async def _listen_to_client(self):
-        """Listen for events from the Wyoming client and forward them to the wake service."""
-        _LOGGER.debug("Listening for events from the Wyoming client")
+    async def _listen_to_target(self):
+        """Forward all events from the target to the source."""
         try:
             while True:
-                event = await self.wake_client.read_event()
+                event = await self.target.read_event()
 
                 if event is None:
-                    _LOGGER.debug("[CLIENT] Disconnected")
-                    break  # Client disconnected
+                    _LOGGER.debug("[TARGET] Disconnected")
+                    break
 
-                if Detect.is_type(event.type):
-                    _LOGGER.debug("[CLIENT] Event: %s", event.type)
+                if Info.is_type(event.type):
+                    # TODO: attach bridge and processors to the info event
+                    _LOGGER.debug("[TARGET] Event: %s", event.type)
+                    await self.write_event(event)
+                elif Detect.is_type(event.type):
+                    # TODO: notify the subscribed processors
+                    _LOGGER.debug("[TARGET] Event: %s", event.type)
                     await self.write_event(event)
 
                 elif NotDetected.is_type(event.type):
-                    _LOGGER.debug("[CLIENT] Event: %s", event.type)
-                    await self.write_event(event)
-
-                elif Describe.is_type(event.type):
-                    _LOGGER.debug("[CLIENT] Event: %s", event.type)
+                    # TODO: notify the subscribed processors
+                    _LOGGER.debug("[TARGET] Event: %s", event.type)
                     await self.write_event(event)
 
                 else:
-                    _LOGGER.debug("[CLIENT] Unexpected event: type=%s, data=%s",
-                                  event.type, event.data)
+                    _LOGGER.debug("[TARGET] Event: %s", event.type)
+                    _LOGGER.debug("[TARGET] Event data: %s", event.data)
                     await self.write_event(event)
 
         except asyncio.CancelledError:
-            _LOGGER.debug("Client listener task cancelled.")
+            _LOGGER.debug("[TARGET] Listener task cancelled.")
             pass
 
     async def handle_event(self, event: Event) -> bool:
-        """Handle Wyoming server events."""
+        """Forward all events from the source to the target."""
 
-        if Describe.is_type(event.type):
-            _LOGGER.debug("[SERVER] Event: %s", event.type)
-            await self.wake_client.write_event(event)
-
-        elif Detect.is_type(event.type):
-            _LOGGER.debug("[SERVER] Event: %s", event.type)
-            await self.wake_client.write_event(event)
-
-        elif AudioStart.is_type(event.type):
-            _LOGGER.debug("[SERVER] Event: %s", event.type)
-            await self.wake_client.write_event(event)
-
-        elif AudioChunk.is_type(event.type):
-            # _LOGGER.debug("Forwarding audio chunk event to wake service")
-            await self.wake_client.write_event(event)
-
-        elif AudioStop.is_type(event.type):
-            _LOGGER.debug("[SERVER] Event: %s", event.type)
-            await self.wake_client.write_event(event)
+        if AudioChunk.is_type(event.type):
+            # Avoid logging here because it can be very noisy
+            await self.target.write_event(event)
 
         else:
-            _LOGGER.debug("[SERVER] Unexpected event: type=%s, data=%s",
-                          event.type, event.data)
+            _LOGGER.debug("[SOURCE] Event: %s", event.type)
+            _LOGGER.debug("[SOURCE] Event data: %s", event.data)
 
         return True
