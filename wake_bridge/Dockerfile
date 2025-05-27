@@ -22,9 +22,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . wake_bridge/
 
 # Create a non-root user for security
-RUN useradd --create-home --shell /bin/bash app && \
-    chown -R app:app /app
-USER app
+RUN useradd --uid 1000 --create-home --shell /bin/bash appuser && \
+    chown -R appuser:appuser /app
+USER appuser
 
 # Expose the default port (configurable via --uri)
 EXPOSE 5004
