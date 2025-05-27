@@ -12,14 +12,9 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class WakeBridgeEventHandler(AsyncEventHandler):
-    """Handle events from the Wake Bridge."""
+    """Handle Wake Bridge events."""
 
-    def __init__(
-        self,
-        target: AsyncClient,
-        *args,
-        **kwargs,
-    ) -> None:
+    def __init__(self, target: AsyncClient, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
         self.target = target
