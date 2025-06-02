@@ -47,8 +47,8 @@ async def main() -> None:
     wyoming_info = Info(
         wake=[
             WakeProgram(
-                name="bridge-",
-                description="Wyoming Wake Bridge: ",
+                name="bridge-to-",
+                description="Wyoming Wake Bridge to: ",
                 attribution=Attribution(
                     name="loque", url="https://github.com/loque/wyoming-bridge"
                 ),
