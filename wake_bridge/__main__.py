@@ -47,27 +47,14 @@ async def main() -> None:
     wyoming_info = Info(
         wake=[
             WakeProgram(
-                name="wyoming-wake-bridge",
-                description="Wyoming Wake Bridge",
+                name="bridge-",
+                description="Wyoming Wake Bridge: ",
                 attribution=Attribution(
                     name="loque", url="https://github.com/loque/wyoming-bridge"
                 ),
                 installed=True,
                 version=__version__,
-                models=[
-                    WakeModel(
-                        name="hey jarvis",
-                        description="A wake word model for Hey Jarvis",
-                        phrase="hey jarvis",
-                        attribution=Attribution(
-                            name="dscripka",
-                            url="https://github.com/dscripka/openWakeWord",
-                        ),
-                        installed=True,
-                        languages=[],
-                        version="0.1.0",
-                    )
-                ],
+                models=[],
             )
         ],
     )
