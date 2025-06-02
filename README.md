@@ -1,4 +1,3 @@
-
 # Wyoming Bridge
 
 **Wyoming Bridge** is a proof-of-concept project designed to enhance the flexibility of Home Assistant's voice control pipeline. It acts as a proxy between existing services, enabling external services to subscribe to and enrich pipeline events, fostering user experimentation without altering the core system.
@@ -36,7 +35,12 @@ The current voice pipeline is designed for reliability and clarity, but its stru
 
 This approach enables users to test and develop new features—like speaker identification or emotion detection—without needing to modify the core pipeline. Wyoming Bridge aims to complement the thoughtful design of Home Assistant and the Wyoming protocol by providing a flexible space for experimentation and innovation.
 
+## What Wyoming Bridge is *not*
 
+While Wyoming Bridge encourages experimentation, it is important to clarify its boundaries:
+
+- It is **not** intended to become part of the official Wyoming protocol or replace any core components. Its purpose is to provide a space for rapid prototyping and exploration, not to define new standards.
+- It is **not** designed for use in stable, long-term, or production deployments. The bridge is experimental by nature and may change or break as new ideas are tested.
 
 ## Installation and Usage
 
