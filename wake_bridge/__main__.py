@@ -3,11 +3,13 @@ import argparse
 import asyncio
 import logging
 import signal
-import contextlib
+from functools import partial
 
-from wyoming.info import Attribution, Info, WakeProgram, WakeModel
-from wyoming.client import AsyncClient
+from wyoming.info import Attribution, Info, WakeProgram
 from wyoming.server import AsyncServer
+
+from wake_bridge.bridge import WakeBridge
+from wake_bridge.settings import BridgeSettings, TargetSettings
 
 from .handler import WakeBridgeEventHandler
 
@@ -15,20 +17,11 @@ from . import __version__
 
 _LOGGER = logging.getLogger()
 
-stop_event = asyncio.Event()
-
-
-def handle_stop_signal(*args):
-    """Handle shutdown signal and set the stop event."""
-    _LOGGER.info("Received stop signal. Shutting down...")
-    stop_event.set()
-    exit(0)
-
 
 def parse_arguments():
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--uri", default="tcp://0.0.0.0:5004",
+    parser.add_argument("--uri", default="tcp://0.0.0.0:11000",
                         help="unix:// or tcp://")
     parser.add_argument(
         "--wake-uri", help="URI of Wyoming wake word detection service")
@@ -38,73 +31,70 @@ def parse_arguments():
 
 
 async def main() -> None:
+    """Main function to run the Wake Bridge."""
     args = parse_arguments()
 
-    # Set up logging
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO)
     _LOGGER.debug(args)
 
+    # Initialize base Wyoming info; details from the wake word detection service
+    # will be added later
     wyoming_info = Info(
         wake=[
             WakeProgram(
-                name="wyoming-wake-bridge",
-                description="Wyoming Wake Bridge",
+                # Prefix for the wake word detection service name
+                name="bridge-to-",
+                # Prefix for the wake word detection service description
+                description="Wyoming Wake Bridge to: ",
                 attribution=Attribution(
                     name="loque", url="https://github.com/loque/wyoming-bridge"
                 ),
                 installed=True,
                 version=__version__,
-                models=[
-                    WakeModel(
-                        name="hey jarvis",
-                        description="A wake word model for Hey Jarvis",
-                        phrase="hey jarvis",
-                        attribution=Attribution(
-                            name="dscripka",
-                            url="https://github.com/dscripka/openWakeWord",
-                        ),
-                        installed=True,
-                        languages=[],
-                        version="0.1.0",
-                    )
-                ],
+                # The actual models from the wake word detection service will be added here
+                models=[],
             )
         ],
     )
 
-    # Connect to Wake service
-    wake_client: AsyncClient = AsyncClient.from_uri(args.wake_uri)
-    await wake_client.connect()
+    bridge_settings = BridgeSettings(
+        target=TargetSettings(
+            uri=args.wake_uri,
+            rate=16000,
+            width=2,
+            channels=1,
+            refractory_seconds=5.0,
+        ),
+        wyoming_info=wyoming_info,
+    )
 
-    # Start server
-    server = AsyncServer.from_uri(args.uri)
+    # Initialize and start WakeBridge
+    wake_bridge = WakeBridge(bridge_settings)
+    wake_bridge_task = asyncio.create_task(
+        wake_bridge.run(), name="wake bridge")
 
-    # Capture handler instance for shutdown
-    handler_container = {}
-
-    def handler_factory(*a, **kw):
-        handler = WakeBridgeEventHandler(wyoming_info, wake_client, *a, **kw)
-        handler_container['handler'] = handler
-        return handler
+    # Initialize Wyoming server
+    wyoming_server = AsyncServer.from_uri(args.uri)
 
     try:
-        await server.run(handler_factory)
+        await wyoming_server.run(partial(WakeBridgeEventHandler, wake_bridge))
     except KeyboardInterrupt:
         pass
     finally:
-        # Graceful shutdown
-        _LOGGER.debug("Shutting down")
-        handler = handler_container.get('handler')
-        if handler is not None:
-            await handler.shutdown()
-        await wake_client.disconnect()
-        await server.stop()
+        await wake_bridge.stop()
+        await wake_bridge_task
+
+
+def handle_stop_signal(*args):
+    """Handle shutdown signal."""
+    _LOGGER.info("Received stop signal. Shutting down...")
+    loop = asyncio.get_event_loop()
+    loop.stop()
 
 
 if __name__ == "__main__":
-   # Set up signal handling for graceful shutdown
+    # Set up signal handling for graceful shutdown
     signal.signal(signal.SIGTERM, handle_stop_signal)
     signal.signal(signal.SIGINT, handle_stop_signal)
 
-    with contextlib.suppress(KeyboardInterrupt):
-        asyncio.run(main())
+    asyncio.run(main())
