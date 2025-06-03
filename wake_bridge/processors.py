@@ -8,7 +8,7 @@ import jsonschema
 # Typing imports
 from typing import List, TypedDict, Literal, Optional, cast, Any
 
-_LOGGER = logging.getLogger()
+_LOGGER = logging.getLogger(__name__)
 
 # Prossessor types
 
