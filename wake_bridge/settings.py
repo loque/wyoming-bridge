@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List
 
 from wyoming.info import Info
@@ -23,5 +23,5 @@ class BridgeSettings:
 
     target: ServiceSettings
     wyoming_info: Info
-    processors: List[Processor] = []
+    processors: List[Processor] = field(default_factory=list)
     restart_timeout: float = 5.0
