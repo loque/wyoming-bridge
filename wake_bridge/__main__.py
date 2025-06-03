@@ -10,7 +10,7 @@ from wyoming.server import AsyncServer
 
 from wake_bridge.bridge import WakeBridge
 from wake_bridge.processors import get_processors
-from wake_bridge.settings import BridgeSettings, TargetSettings
+from wake_bridge.settings import BridgeSettings, ServiceSettings
 
 from .handler import WakeBridgeEventHandler
 
@@ -66,12 +66,8 @@ async def main() -> None:
     )
 
     bridge_settings = BridgeSettings(
-        target=TargetSettings(
+        target=ServiceSettings(
             uri=args.wake_uri,
-            rate=16000,
-            width=2,
-            channels=1,
-            refractory_seconds=5.0,
         ),
         wyoming_info=wyoming_info,
     )
