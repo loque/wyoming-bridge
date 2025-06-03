@@ -1,7 +1,9 @@
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List
 
 from wyoming.info import Info
+
+from wake_bridge.processors import Processor
 
 
 @dataclass(frozen=True)
@@ -21,4 +23,5 @@ class BridgeSettings:
 
     target: ServiceSettings
     wyoming_info: Info
+    processors: List[Processor] = []
     restart_timeout: float = 5.0

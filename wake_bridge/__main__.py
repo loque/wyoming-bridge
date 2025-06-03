@@ -43,6 +43,7 @@ async def main() -> None:
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO)
     _LOGGER.debug(args)
 
+    # Validate and load the configured processors
     processors = get_processors(args.processors_path)
 
     # Initialize base Wyoming info; details from the wake word detection service
@@ -70,6 +71,7 @@ async def main() -> None:
             uri=args.wake_uri,
         ),
         wyoming_info=wyoming_info,
+        processors=processors,
     )
 
     # Initialize and start WakeBridge
