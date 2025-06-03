@@ -9,6 +9,7 @@ from wyoming.info import Attribution, Info, WakeProgram
 from wyoming.server import AsyncServer
 
 from wake_bridge.bridge import WakeBridge
+from wake_bridge.processors import get_processors
 from wake_bridge.settings import BridgeSettings, TargetSettings
 
 from .handler import WakeBridgeEventHandler
@@ -21,10 +22,15 @@ _LOGGER = logging.getLogger()
 def parse_arguments():
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--uri", default="tcp://0.0.0.0:11000",
-                        help="unix:// or tcp://")
+    parser.add_argument("--uri", help="unix:// or tcp://",
+                        default="tcp://0.0.0.0:11000")
+
     parser.add_argument(
         "--wake-uri", help="URI of Wyoming wake word detection service")
+
+    parser.add_argument(
+        "--processors-path", help="Path to the processors configuration file", default="config.yml")
+
     parser.add_argument("--debug", action="store_true",
                         help="Log DEBUG messages")
     return parser.parse_args()
@@ -36,6 +42,8 @@ async def main() -> None:
 
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO)
     _LOGGER.debug(args)
+
+    processors = get_processors(args.processors_path)
 
     # Initialize base Wyoming info; details from the wake word detection service
     # will be added later

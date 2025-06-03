@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WyomingBridge Processors Schema",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": ["id", "uri", "subscriptions"],
+    "properties": {
+      "id": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uri": {
+        "type": "string",
+        "pattern": "^tcp://[a-zA-Z0-9_.:-]+$"
+      },
+      "subscriptions": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["event", "from", "role"],
+          "properties": {
+            "event": {
+              "type": "string",
+              "minLength": 1
+            },
+            "from": {
+              "type": "string",
+              "enum": ["source", "target"]
+            },
+            "role": {
+              "type": "string",
+              "enum": ["observer", "enricher"]
+            },
+            "depends_on": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "default": []
+            }
+          },
+          "additionalProperties": false,
+          "if": {
+            "properties": { "role": { "const": "observer" } }
+          },
+          "then": {
+            "not": { "required": ["depends_on"] }
+          }
+        },
+        "minItems": 1
+      }
+    },
+    "additionalProperties": false
+  }
+}
