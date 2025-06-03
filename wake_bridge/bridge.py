@@ -253,8 +253,7 @@ class WakeBridge(LifecycleManager):
         target = target_info.wake[0]
 
         bridge.name = (bridge.name or "") + (target.name or "")
-        bridge.description = (bridge.description or "") + \
-            (target.description or "")
+        bridge.description = (bridge.description or "") + (target.description or "")
 
         # Models assignment
         bridge.models = target.models
@@ -286,13 +285,11 @@ class WakeBridge(LifecycleManager):
                 if role == "enricher":
                     if event_type not in self._enricher_subscriptions:
                         self._enricher_subscriptions[event_type] = []
-                    self._enricher_subscriptions[event_type].append(
-                        processor_sub)
+                    self._enricher_subscriptions[event_type].append(processor_sub)
                 else:  # observer
                     if event_type not in self._observer_subscriptions:
                         self._observer_subscriptions[event_type] = []
-                    self._observer_subscriptions[event_type].append(
-                        processor_sub)
+                    self._observer_subscriptions[event_type].append(processor_sub)
 
     def _generate_correlation_id(self) -> CorrelationId:
         """Generate a unique correlation ID for event tracking."""
