@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import List, Optional
 
 from wyoming.info import Info
@@ -8,25 +8,17 @@ from wyoming.info import Info
 class ServiceSettings():
     """Base class for service settings."""
 
-    uri: Optional[str] = None
+    uri: str
     """tcp://ip-address:port"""
-
-    command: Optional[List[str]] = None
-    """program + args"""
 
     reconnect_seconds: float = 3.0
     """Seconds before reconnection attempt is made."""
-
-    @property
-    def enabled(self) -> bool:
-        """True if service is enabled."""
-        return bool(self.uri or self.command)
 
 
 @dataclass(frozen=True)
 class BridgeSettings:
     """Wyoming bridge settings."""
 
-    target: ServiceSettings = field(default_factory=ServiceSettings)
+    target: ServiceSettings
+    wyoming_info: Info
     restart_timeout: float = 5.0
-    wyoming_info: Optional[Info] = None
