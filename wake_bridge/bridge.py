@@ -473,14 +473,10 @@ class WakeBridge(LifecycleManager):
         if tracker.origin == "source":
             await self._publish_source_event(enriched_event)
         else:  # target
-    async def _publish_target_event(self, event: Event) -> None:
-        """Send final event to source and target observers."""
-        if not self._source_conn:
-            # TODO: improve error handling
-            raise RuntimeError("Source connection is not established")
+            await self._publish_target_event(enriched_event)
         
-        # Forward event to source
-        await self._source_conn.send_event(event)
+        # Clean up tracker
+        del self._enrichment_trackers[correlation_id]
 
     async def _publish_target_event(self, event: Event) -> None:
         """Send final event to source and target observers."""
