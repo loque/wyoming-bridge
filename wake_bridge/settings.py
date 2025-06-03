@@ -22,6 +22,5 @@ class BridgeSettings:
     """Wyoming bridge settings."""
 
     target: ServiceSettings
-    wyoming_info: Info
     processors: List[Processor] = field(default_factory=list)
     restart_timeout: float = 5.0

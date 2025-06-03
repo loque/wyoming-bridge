@@ -1,5 +1,3 @@
-"""Example of WakeBridge refactored to use the state management abstraction."""
-
 import asyncio
 import logging
 import uuid
@@ -10,6 +8,7 @@ from wyoming.audio import AudioChunk
 from wyoming.event import Event
 from wyoming.info import Info
 
+from wake_bridge.info import enrich_wyoming_info
 from wake_bridge.settings import BridgeSettings
 from wake_bridge.connections import DownstreamConnection, UpstreamConnection
 from wake_bridge.state_manager import LifecycleManager, BaseState
@@ -61,9 +60,6 @@ class WakeBridge(LifecycleManager):
 
         # Track ongoing enrichment processes
         self._enrichment_trackers: Dict[CorrelationId, EnrichmentTracker] = {}
-
-        self.wyoming_info: Info = settings.wyoming_info or Info()
-        self.wyoming_info_enriched = False
 
         # Initialize subscription indexes
         self._build_subscription_indexes()
@@ -232,7 +228,7 @@ class WakeBridge(LifecycleManager):
         """Called when an event is received from the target service."""
 
         if Info.is_type(event.type):
-            event = self._enrich_wyoming_info(event)
+            event = enrich_wyoming_info(event)
 
         event_type = SubscriptionEvent(event.type)
 
@@ -268,24 +264,6 @@ class WakeBridge(LifecycleManager):
         
         await self._handle_enricher_response(correlation_id, composed_correlation_id, event)
         
-    def _enrich_wyoming_info(self, event: Event) -> Event:
-        """Enhance bridge info with target info."""
-        if self.wyoming_info_enriched:
-            return self.wyoming_info.event()
-
-        target_info = Info.from_event(event)
-        bridge = self.wyoming_info.wake[0]
-        target = target_info.wake[0]
-
-        bridge.name = (bridge.name or "") + (target.name or "")
-        bridge.description = (bridge.description or "") + (target.description or "")
-
-        # Models assignment
-        bridge.models = target.models
-
-        self.wyoming_info_enriched = True
-        return self.wyoming_info.event()
-
     def _build_subscription_indexes(self) -> None:
         """Build indexed lookups for processor subscriptions."""
         self._enricher_subscriptions.clear()

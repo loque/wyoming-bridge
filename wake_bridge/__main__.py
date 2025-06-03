@@ -46,31 +46,10 @@ async def main() -> None:
     # Validate and load the configured processors
     processors = get_processors(args.processors_path)
 
-    # Initialize base Wyoming info; details from the wake word detection service
-    # will be added later
-    wyoming_info = Info(
-        wake=[
-            WakeProgram(
-                # Prefix for the wake word detection service name
-                name="bridge-to-",
-                # Prefix for the wake word detection service description
-                description="Wyoming Wake Bridge to: ",
-                attribution=Attribution(
-                    name="loque", url="https://github.com/loque/wyoming-bridge"
-                ),
-                installed=True,
-                version=__version__,
-                # The actual models from the wake word detection service will be added here
-                models=[],
-            )
-        ],
-    )
-
     bridge_settings = BridgeSettings(
         target=ServiceSettings(
             uri=args.wake_uri,
         ),
-        wyoming_info=wyoming_info,
         processors=processors,
     )
 

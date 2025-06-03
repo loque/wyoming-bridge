@@ -180,7 +180,6 @@ async def test_enricher_flow_for_target_events():
     # Create bridge settings
     settings = BridgeSettings(
         target=ServiceSettings(uri="tcp://localhost:9999"),
-        wyoming_info=Info(),
         processors=processors
     )
     
@@ -282,7 +281,6 @@ async def test_target_event_without_enrichers():
     # Create bridge settings
     settings = BridgeSettings(
         target=ServiceSettings(uri="tcp://localhost:9999"),
-        wyoming_info=Info(),
         processors=processors
     )
     
