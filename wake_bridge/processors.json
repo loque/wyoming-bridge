@@ -28,13 +28,13 @@
         "type": "array",
         "items": {
           "type": "object",
-          "required": ["event", "from", "role"],
+          "required": ["event", "origin", "role"],
           "properties": {
             "event": {
               "type": "string",
               "minLength": 1
             },
-            "from": {
+            "origin": {
               "type": "string",
               "enum": ["source", "target"]
             },

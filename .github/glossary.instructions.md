@@ -22,7 +22,7 @@ Refers generally to the direction _toward_ Assist.
 
 The primary Wyoming service that the bridge wraps.
 
-- Receives events forwarded from the Source (after optional preprocessing by processors).
+- Receives events originating from the Source (after optional preprocessing by processors).
 - Emits core output events expected by Assist (e.g. `detection` for wake-word phase).
 - Examples: `openWakeWord`, `faster-whisper`, `Piper`, etc.
 
@@ -42,7 +42,7 @@ Any additional Wyoming service connected to the bridge that can:
 
 - Receives copies of events for observation or logging.
 - Does not block or influence the event flow.
-- Can subscribe to events from Source or Target.
+- Can subscribe to events originating from the Source or Target.
 - Fire-and-forget delivery.
 
 ### **Enricher (Processor Role)**
@@ -56,7 +56,7 @@ Any additional Wyoming service connected to the bridge that can:
 The declaration inside processor configuration describing:
 
 - Which event type the processor listens to (`event`).
-- From which direction (`source` or `target`).
+- Origin of the event (`source` or `target`).
 - In what role (`observer` or `enricher`).
 - Optional dependencies (`depends_on`) for enrichers.
 

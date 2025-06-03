@@ -6,9 +6,11 @@ import json
 import jsonschema
 
 # Typing imports
-from typing import List, TypedDict, Literal, Optional, cast
+from typing import List, TypedDict, Literal, Optional, cast, Any
 
 _LOGGER = logging.getLogger()
+
+# Prossessor types
 
 
 class SubscriptionEnricher(TypedDict, total=False):
@@ -20,7 +22,7 @@ class SubscriptionEnricher(TypedDict, total=False):
 
 class SubscriptionObserver(TypedDict):
     event: str
-    from_: Literal["source", "target"]
+    origin: Literal["source", "target"]
     role: Literal["observer"]
     # 'depends_on' not allowed
 
@@ -37,7 +39,27 @@ class Processor(TypedDict):
 Processors = List[Processor]
 
 
-def validate_processors_config(processors):
+# Processor config types
+
+class ProcessorConfigSubscription(TypedDict, total=False):
+    """Raw subscription from config file (uses 'origin' instead of 'from_')"""
+    event: str
+    origin: Literal["source", "target"]  # Note: 'origin' not 'from_'
+    role: Literal["observer", "enricher"]
+    depends_on: List[str]
+
+
+class ProcessorConfig(TypedDict):
+    """Raw processor configuration from config file"""
+    id: str
+    uri: str
+    subscriptions: List[ProcessorConfigSubscription]
+
+
+ProcessorsConfig = List[ProcessorConfig]
+
+
+def validate_processors_config(processors: ProcessorsConfig) -> None:
     """Validate processors config."""
 
     # Validate the processors configuration against a JSON schema.
@@ -129,7 +151,7 @@ def validate_processors_config(processors):
     #     check_circular_dependencies(proc_id)
 
 
-def load_processors_config(processors_path: str):
+def load_processors_config(processors_path: str) -> ProcessorsConfig:
     """Load processors configuration from a YAML file."""
     try:
         with open(processors_path, "r") as processors_file:
@@ -145,7 +167,7 @@ def load_processors_config(processors_path: str):
         raise
 
 
-def config_to_processor(processors_config: list) -> Processors:
+def config_to_processor(processors_config: ProcessorsConfig) -> Processors:
     """Recursively convert 'processor configs' to 'Processor'."""
     result = []
     for proc in processors_config:
@@ -155,6 +177,9 @@ def config_to_processor(processors_config: list) -> Processors:
             new_sub = dict(sub)
             if "from" in new_sub:
                 new_sub["from_"] = new_sub.pop("from")
+            elif "origin" in new_sub:
+                new_sub["from_"] = new_sub["origin"]
+                del new_sub["origin"]
             new_subs.append(new_sub)
         new_proc["subscriptions"] = new_subs
         result.append(new_proc)
