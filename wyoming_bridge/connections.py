@@ -3,7 +3,7 @@
 import asyncio
 import logging
 from abc import ABC, abstractmethod
-from typing import Optional, Protocol, Callable, Awaitable
+from typing import Optional, Protocol, Awaitable
 
 from wyoming.client import AsyncClient
 from wyoming.event import Event, async_write_event
