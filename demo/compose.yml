@@ -39,7 +39,7 @@ services:
       --target-uri tcp://target:9001
       --debug
     volumes:
-      - ./processors.yml:/app/config.yml
+      - ./processors.yml:/app/processors.yml
     restart: unless-stopped
 
   coordinator:

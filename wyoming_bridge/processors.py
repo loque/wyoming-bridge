@@ -128,22 +128,22 @@ def validate_processors_config(processors: Processors) -> None:
     #     check_circular_dependencies(proc_id)
 
 
-def load_processors(config_path: str) -> Processors:
+def load_processors(processors_config_path: str) -> Processors:
     """Load processors configuration from a YAML file."""
     try:
-        with open(config_path, "r") as config_file:
-            processors = yaml.safe_load(config_file)
+        with open(processors_config_path, "r") as processors_config_file:
+            processors = yaml.safe_load(processors_config_file)
             _LOGGER.debug("Processors configuration loaded successfully.")
             return cast(Processors, processors)
     except FileNotFoundError:
-        _LOGGER.warning(f"Processors configuration file not found in {config_path}. No processors will be loaded.")
+        _LOGGER.warning(f"Processors configuration file not found in {processors_config_path}. No processors will be loaded.")
         return []
     except yaml.YAMLError as e:
         _LOGGER.error(f"Error parsing processors configuration: {e}")
         raise
 
-def get_processors(config_path: str) -> Processors:
+def get_processors(processors_config_path: str) -> Processors:
     """Get processors configuration after validation, with full typing."""
-    processors = load_processors(config_path)
+    processors = load_processors(processors_config_path)
     validate_processors_config(processors)
     return processors

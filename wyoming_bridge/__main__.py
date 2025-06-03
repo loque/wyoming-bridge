@@ -27,7 +27,7 @@ def parse_arguments():
         "--target-uri", help="URI of Wyoming target service")
 
     parser.add_argument(
-        "--processors-path", help="Path to the processors configuration file", default="config.yml")
+        "--processors-path", help="Path to the processors configuration file", default="processors.yml")
 
     parser.add_argument("--debug", action="store_true",
                         help="Log DEBUG messages")
