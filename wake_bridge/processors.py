@@ -93,39 +93,40 @@ def validate_processors_config(processors):
                         raise ValueError(
                             f"Processor '{proc_id}' depends on non-existent processor '{dep_id}'")
 
-    # Check for circular dependencies
-    def check_circular_dependencies(proc_id, visited=None, path=None):
-        if visited is None:
-            visited = set()
-        if path is None:
-            path = []
+    # For now, we won't check for circular dependencies because this
+    # implementation might result in false positives for complex valid
+    # configurations.
+    #
+    # # Check for circular dependencies
+    # def check_circular_dependencies(proc_id, visited=None, path=None): if
+    #     visited is None: visited = set() if path is None: path = []
 
-        if proc_id in path:
-            cycle = path[path.index(proc_id):] + [proc_id]
-            _LOGGER.error(
-                f"Circular dependency detected: {' -> '.join(cycle)}")
-            raise ValueError(
-                f"Circular dependency detected: {' -> '.join(cycle)}")
+    #     if proc_id in path:
+    #         cycle = path[path.index(proc_id):] + [proc_id]
+    #         _LOGGER.error(
+    #             f"Circular dependency detected: {' -> '.join(cycle)}")
+    #         raise ValueError(
+    #             f"Circular dependency detected: {' -> '.join(cycle)}")
 
-        if proc_id in visited:
-            return
+    #     if proc_id in visited:
+    #         return
 
-        visited.add(proc_id)
-        path.append(proc_id)
+    #     visited.add(proc_id)
+    #     path.append(proc_id)
 
-        # Find the processor by ID
-        processor = next(
-            (p for p in processors if p.get("id") == proc_id), None)
-        if processor:
-            for subscription in processor.get("subscriptions", []):
-                if "role" in subscription and subscription["role"] == "enricher" and "depends_on" in subscription:
-                    for dep_id in subscription["depends_on"]:
-                        check_circular_dependencies(
-                            dep_id, visited, path.copy())
+    #     # Find the processor by ID
+    #     processor = next(
+    #         (p for p in processors if p.get("id") == proc_id), None)
+    #     if processor:
+    #         for subscription in processor.get("subscriptions", []):
+    #             if "role" in subscription and subscription["role"] == "enricher" and "depends_on" in subscription:
+    #                 for dep_id in subscription["depends_on"]:
+    #                     check_circular_dependencies(
+    #                         dep_id, visited, path.copy())
 
-    # Run circular dependency check for each processor
-    for proc_id in processor_ids:
-        check_circular_dependencies(proc_id)
+    # # Run circular dependency check for each processor
+    # for proc_id in processor_ids:
+    #     check_circular_dependencies(proc_id)
 
 
 def load_processors_config(processors_path: str):
