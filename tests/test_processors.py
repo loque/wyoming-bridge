@@ -1,18 +1,18 @@
 import pytest
 from unittest.mock import AsyncMock,  patch
-from typing import List, cast
+from typing import cast
 
 from wyoming.event import Event
 from wyoming.info import Info
 
-from wake_bridge.processors import validate_processors_config, ProcessorsConfig, Processor
-from wake_bridge.bridge import WakeBridge, CorrelationId, ProcessorId, SubscriptionEvent
+from wake_bridge.processors import validate_processors_config, Processors
+from wake_bridge.bridge import WakeBridge, ProcessorId
 from wake_bridge.settings import BridgeSettings, ServiceSettings
 
 
 def test_valid_processor_config():
     """Test valid processor configuration."""
-    valid_config: ProcessorsConfig = [
+    valid_config = cast(Processors, [
         {
             "id": "proc1",
             "uri": "tcp://localhost:10001",
@@ -35,14 +35,14 @@ def test_valid_processor_config():
                 {"event": "transcribe", "origin": "target", "role": "enricher"}
             ]
         }
-    ]
+    ])
     # Should not raise any exceptions
     validate_processors_config(valid_config)
 
 
 def test_duplicate_processor_ids():
     """Test duplicate processor IDs."""
-    invalid_config: ProcessorsConfig = [
+    invalid_config = cast(Processors, [
         {
             "id": "proc1",
             "uri": "tcp://localhost:10001",
@@ -55,14 +55,14 @@ def test_duplicate_processor_ids():
             "subscriptions": [
                 {"event": "transcribe", "origin": "source", "role": "observer"}]
         }
-    ]
+    ])
     with pytest.raises(ValueError, match="Duplicate processor IDs found:"):
         validate_processors_config(invalid_config)
 
 
 def test_self_referential_dependency():
     """Test self-referential dependency."""
-    invalid_config: ProcessorsConfig = [
+    invalid_config = cast(Processors, [
         {
             "id": "proc1",
             "uri": "tcp://localhost:10001",
@@ -71,14 +71,14 @@ def test_self_referential_dependency():
                     "role": "enricher", "depends_on": ["proc1"]}
             ]
         }
-    ]
+    ])
     with pytest.raises(ValueError, match="cannot depend on itself"):
         validate_processors_config(invalid_config)
 
 
 def test_nonexistent_dependency():
     """Test non-existent dependency."""
-    invalid_config: ProcessorsConfig = [
+    invalid_config = cast(Processors, [
         {
             "id": "proc1",
             "uri": "tcp://localhost:10001",
@@ -87,7 +87,7 @@ def test_nonexistent_dependency():
                     "role": "enricher", "depends_on": ["proc2"]}
             ]
         }
-    ]
+    ])
     with pytest.raises(ValueError, match="depends on non-existent processor"):
         validate_processors_config(invalid_config)
 
@@ -153,7 +153,7 @@ def test_nonexistent_dependency():
 async def test_enricher_flow_for_target_events():
     """Test enricher flow for target-originated events."""
     # Create test configuration with enrichers
-    processors_config: ProcessorsConfig = [
+    processors = cast(Processors, [
         {
             "id": "enricher1",
             "uri": "tcp://localhost:10001",
@@ -175,13 +175,13 @@ async def test_enricher_flow_for_target_events():
                 {"event": "transcript", "origin": "target", "role": "observer"}
             ]
         }
-    ]
+    ])
     
     # Create bridge settings
     settings = BridgeSettings(
         target=ServiceSettings(uri="tcp://localhost:9999"),
         wyoming_info=Info(),
-        processors=cast(List[Processor], processors_config)
+        processors=processors
     )
     
     # Create bridge instance
@@ -269,7 +269,7 @@ async def test_enricher_flow_for_target_events():
 async def test_target_event_without_enrichers():
     """Test target event processing when no enrichers are configured."""
     # Create test configuration without enrichers
-    processors_config: ProcessorsConfig = [
+    processors = cast(Processors, [
         {
             "id": "observer1",
             "uri": "tcp://localhost:10003",
@@ -277,13 +277,13 @@ async def test_target_event_without_enrichers():
                 {"event": "transcript", "origin": "target", "role": "observer"}
             ]
         }
-    ]
+    ])
     
     # Create bridge settings
     settings = BridgeSettings(
         target=ServiceSettings(uri="tcp://localhost:9999"),
         wyoming_info=Info(),
-        processors=cast(List[Processor], processors_config)
+        processors=processors
     )
     
     # Create bridge instance

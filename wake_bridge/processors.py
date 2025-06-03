@@ -5,16 +5,12 @@ import yaml
 import json
 import jsonschema
 
-# Typing imports
 from typing import List, TypedDict, Literal, cast, NewType
 
 _LOGGER = logging.getLogger(__name__)
 
 ProcessorId = NewType('ProcessorId', str)
 SubscriptionEvent = NewType('SubscriptionEvent', str)
-
-# Processor types
-
 
 class SubscriptionEnricher(TypedDict, total=False):
     event: SubscriptionEvent
@@ -32,7 +28,6 @@ class SubscriptionObserver(TypedDict):
 
 Subscription = SubscriptionObserver | SubscriptionEnricher
 
-
 class Processor(TypedDict):
     id: ProcessorId
     uri: str
@@ -41,28 +36,7 @@ class Processor(TypedDict):
 
 Processors = List[Processor]
 
-
-# Processor config types
-
-class ProcessorConfigSubscription(TypedDict, total=False):
-    """Raw subscription from config file"""
-    event: SubscriptionEvent
-    origin: Literal["source", "target"]
-    role: Literal["observer", "enricher"]
-    depends_on: List[ProcessorId]
-
-
-class ProcessorConfig(TypedDict):
-    """Raw processor configuration from config file"""
-    id: ProcessorId
-    uri: str
-    subscriptions: List[ProcessorConfigSubscription]
-
-
-ProcessorsConfig = List[ProcessorConfig]
-
-
-def validate_processors_config(processors: ProcessorsConfig) -> None:
+def validate_processors_config(processors: Processors) -> None:
     """Validate processors config."""
 
     # Validate the processors configuration against a JSON schema.
@@ -154,40 +128,23 @@ def validate_processors_config(processors: ProcessorsConfig) -> None:
     #     check_circular_dependencies(proc_id)
 
 
-def load_processors_config(processors_path: str) -> ProcessorsConfig:
+def load_processors(config_path: str) -> Processors:
     """Load processors configuration from a YAML file."""
     try:
-        with open(processors_path, "r") as processors_file:
-            processors = yaml.safe_load(processors_file)
+        with open(config_path, "r") as config_file:
+            processors = yaml.safe_load(config_file)
             _LOGGER.debug("Processors configuration loaded successfully.")
-            return processors
+            return cast(Processors, processors)
     except FileNotFoundError:
         _LOGGER.error(
-            f"Processors configuration file not found: {processors_path}")
+            f"Processors configuration file not found: {config_path}")
         raise
     except yaml.YAMLError as e:
         _LOGGER.error(f"Error parsing processors configuration: {e}")
         raise
 
-# TODO: do we really need this? It seems to be a duplicate of the
-# `Processors` type, but without the type checking. Can't we just convert
-# `Processors` directly?
-def config_to_processor(processors_config: ProcessorsConfig) -> Processors:
-    """Recursively convert 'processor configs' to 'Processor'."""
-    result = []
-    for proc in processors_config:
-        new_proc = dict(proc)
-        new_subs = []
-        for sub in proc["subscriptions"]:
-            new_sub = dict(sub)
-            new_subs.append(new_sub)
-        new_proc["subscriptions"] = new_subs
-        result.append(new_proc)
-    return cast(Processors, result)
-
-
-def get_processors(processors_path: str) -> Processors:
+def get_processors(config_path: str) -> Processors:
     """Get processors configuration after validation, with full typing."""
-    processors_config = load_processors_config(processors_path)
-    validate_processors_config(processors_config)
-    return config_to_processor(processors_config)
+    processors = load_processors(config_path)
+    validate_processors_config(processors)
+    return processors
