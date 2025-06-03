@@ -3,7 +3,7 @@ from typing import List
 
 from wyoming.info import Info
 
-from wake_bridge.processors import Processor
+from wyoming_bridge.processors import Processor
 
 
 @dataclass(frozen=True)

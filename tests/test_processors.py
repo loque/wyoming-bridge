@@ -3,11 +3,10 @@ from unittest.mock import AsyncMock,  patch
 from typing import cast
 
 from wyoming.event import Event
-from wyoming.info import Info
 
-from wake_bridge.processors import validate_processors_config, Processors
-from wake_bridge.bridge import WakeBridge, ProcessorId
-from wake_bridge.settings import BridgeSettings, ServiceSettings
+from wyoming_bridge.processors import validate_processors_config, Processors
+from wyoming_bridge.bridge import WakeBridge, ProcessorId
+from wyoming_bridge.settings import BridgeSettings, ServiceSettings
 
 
 def test_valid_processor_config():

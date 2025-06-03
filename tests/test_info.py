@@ -1,12 +1,12 @@
 import pytest
+
 from wyoming.info import (
     Info, AsrProgram, AsrModel, TtsProgram, TtsVoice, WakeProgram, WakeModel,
     HandleProgram, IntentProgram, MicProgram, SndProgram, Satellite, Attribution
 )
 from wyoming.audio import AudioFormat
 
-from wake_bridge.info import enrich_wyoming_info, artifact, reset_cache
-
+from wyoming_bridge.info import enrich_wyoming_info, artifact, reset_cache
 
 @pytest.fixture(autouse=True)
 def clear_cache():

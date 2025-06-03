@@ -8,11 +8,11 @@ from wyoming.audio import AudioChunk
 from wyoming.event import Event
 from wyoming.info import Info
 
-from wake_bridge.info import enrich_wyoming_info
-from wake_bridge.settings import BridgeSettings
-from wake_bridge.connections import DownstreamConnection, UpstreamConnection
-from wake_bridge.state_manager import LifecycleManager, BaseState
-from wake_bridge.processors import Subscription, ProcessorId, SubscriptionEvent
+from wyoming_bridge.info import enrich_wyoming_info
+from wyoming_bridge.settings import BridgeSettings
+from wyoming_bridge.connections import DownstreamConnection, UpstreamConnection
+from wyoming_bridge.state_manager import LifecycleManager, BaseState
+from wyoming_bridge.processors import Subscription, ProcessorId, SubscriptionEvent
 
 _LOGGER = logging.getLogger(__name__)
 

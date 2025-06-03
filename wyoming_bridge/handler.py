@@ -4,7 +4,7 @@ import time
 from wyoming.event import Event
 from wyoming.server import AsyncEventHandler
 
-from wake_bridge.bridge import WakeBridge
+from wyoming_bridge.bridge import WakeBridge
 
 _LOGGER = logging.getLogger(__name__)
 

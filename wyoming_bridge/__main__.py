@@ -5,19 +5,17 @@ import logging
 import signal
 from functools import partial
 
-from wyoming.info import Attribution, Info, WakeProgram
 from wyoming.server import AsyncServer
 
-from wake_bridge.bridge import WakeBridge
-from wake_bridge.processors import get_processors
-from wake_bridge.settings import BridgeSettings, ServiceSettings
+from wyoming_bridge.bridge import WakeBridge
+from wyoming_bridge.processors import get_processors
+from wyoming_bridge.settings import BridgeSettings, ServiceSettings
 
 from .handler import WakeBridgeEventHandler
 
 from . import __version__
 
 _LOGGER = logging.getLogger()
-
 
 def parse_arguments():
     """Parse command-line arguments."""
