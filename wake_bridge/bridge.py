@@ -240,8 +240,18 @@ class WakeBridge(LifecycleManager):
     async def on_processor_event(self, event: Event) -> None:
         """Called when an event is received from a processor (enricher responses)."""
         _LOGGER.debug("Event received from processor: %s", event.type)
-        # TODO: In future iterations, handle enricher response correlation
-        # For now, just log the event as requested
+        
+        # Generate correlation ID for tracking this event's processing
+        correlation_id = self._generate_correlation_id()
+        
+        # Notify all observer subscribers for this event type
+        event_type = SubscriptionEvent(event.type)
+        observer_subs = self._observer_subscriptions.get(event_type, [])
+        if observer_subs:
+            _LOGGER.debug("Sending processor event to %d observer processors for event %s", len(observer_subs), event.type)
+            await self._send_to_observers(event, observer_subs)
+        else:
+            _LOGGER.debug("No observer subscriptions found for processor event %s", event.type)
 
     def _enrich_wyoming_info(self, event: Event) -> Event:
         """Enhance bridge info with target info."""
