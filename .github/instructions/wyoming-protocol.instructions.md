@@ -94,7 +94,7 @@ Describe available services.
       - `description` - human-readable description (string, optional)
       - `version` - version of the model (string, optional)
   - `tts` - list text to speech services (optional)
-    - `models` - list of available models
+    - `voices` - list of available voices
       - `name` - unique name (required)
       - `languages` - supported languages by model (list of string, required)
       - `speakers` - list of speakers (optional)
@@ -105,10 +105,11 @@ Describe available services.
       - `installed` - true if currently installed (bool, required)
       - `description` - human-readable description (string, optional)
       - `version` - version of the model (string, optional)
-  - `wake` - list wake word detection services( optional )
+  - `wake` - list wake word detection services(optional)
     - `models` - list of available models (required)
       - `name` - unique name (required)
       - `languages` - supported languages by model (list of string, required)
+      - `phrase` - wake up phrase used by the model (string, optional)
       - `attribution` (required)
         - `name` - name of creator (required)
         - `url` - URL of creator (required)
