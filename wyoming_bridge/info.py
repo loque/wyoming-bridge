@@ -6,10 +6,10 @@ from wyoming.info import Artifact, Attribution, Info, Satellite
 from . import __version__
 
 artifact = Artifact(
-    # Prefix for the wake word detection service name
+    # Prefix for the target service name
     name="bridge-to-",
-    # Prefix for the wake word detection service description
-    description="Wyoming Wake Bridge to: ",
+    # Prefix for the target service description
+    description="Wyoming Bridge to: ",
     attribution=Attribution(
         name="loque", url="https://github.com/loque/wyoming-bridge"
     ),

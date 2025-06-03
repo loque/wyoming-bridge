@@ -1,4 +1,4 @@
-"""Wyoming Wake Bridge"""
+"""Wyoming Bridge"""
 from pathlib import Path
 
 

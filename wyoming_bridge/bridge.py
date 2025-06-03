@@ -37,16 +37,16 @@ class EnrichmentTracker:
     completed: bool = False
 
 
-class WakeBridge(LifecycleManager):
+class WyomingBridge(LifecycleManager):
     """
-    WakeBridge serves as a bridge between the Wake target and the source (e.g.
-    Home Assistant).
+    WyomingBridge serves as a bridge between the Wyoming target and the source
+    (e.g.  Home Assistant).
     """
 
     def __init__(self, settings: BridgeSettings) -> None:
-        """Initializes the WakeBridge with state management."""
-        super().__init__("wake_bridge")
-        _LOGGER.debug("Initializing WakeBridge with settings: %s", settings)
+        """Initializes the WyomingBridge with state management."""
+        super().__init__("wyoming_bridge")
+        _LOGGER.debug("Initializing WyomingBridge with settings: %s", settings)
         self.settings = settings
 
         # Connection managers
@@ -97,7 +97,7 @@ class WakeBridge(LifecycleManager):
 
     async def _on_started(self) -> None:
         """Handle STARTED state - bridge is operational."""
-        _LOGGER.info("Wake bridge started successfully")
+        _LOGGER.info("Wyoming bridge started successfully")
 
     async def _on_stopping(self) -> None:
         """Handle STOPPING state."""
@@ -106,7 +106,7 @@ class WakeBridge(LifecycleManager):
 
     async def _on_stopped(self) -> None:
         """Handle STOPPED state - bridge is fully stopped."""
-        _LOGGER.info("Wake bridge stopped")
+        _LOGGER.info("Wyoming bridge stopped")
 
     async def _on_restarting(self) -> None:
         """Handle RESTARTING state."""

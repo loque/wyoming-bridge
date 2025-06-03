@@ -5,7 +5,7 @@ from typing import cast
 from wyoming.event import Event
 
 from wyoming_bridge.processors import validate_processors_config, Processors
-from wyoming_bridge.bridge import WakeBridge, ProcessorId
+from wyoming_bridge.bridge import WyomingBridge, ProcessorId
 from wyoming_bridge.settings import BridgeSettings, ServiceSettings
 
 
@@ -183,7 +183,7 @@ async def test_enricher_flow_for_target_events():
     )
     
     # Create bridge instance
-    bridge = WakeBridge(settings)
+    bridge = WyomingBridge(settings)
     
     # Mock connections
     with patch.object(bridge, '_connect_downstream'), \
@@ -284,7 +284,7 @@ async def test_target_event_without_enrichers():
     )
     
     # Create bridge instance
-    bridge = WakeBridge(settings)
+    bridge = WyomingBridge(settings)
     
     # Mock connections
     with patch.object(bridge, '_connect_downstream'), \

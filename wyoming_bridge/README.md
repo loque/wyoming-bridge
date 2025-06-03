@@ -1,46 +1,55 @@
-# Wyoming Wake Bridge Docker
+# Wyoming Bridge Docker
 
-This directory contains the Dockerfile and related files for containerizing the Wyoming Wake Bridge service.
+This directory contains the Dockerfile and related files for containerizing the Wyoming Bridge service.
 
 ## Building the Image
 
-From this directory (`wake_bridge/`), run:
+From this directory (`wyoming_bridge/`), run:
 
 ```bash
-docker build -t wyoming-wake-bridge .
+docker build -t wyoming-bridge .
 ```
 
 ## Running the Container
 
-The wake bridge requires a connection to a Wyoming wake word detection service. You must provide the `--wake-uri` parameter:
+The Wyoming Bridge requires a connection to a Wyoming service. You must provide the `--target-uri` parameter:
 
 ```bash
 # Basic usage
-docker run -p 5004:5004 wyoming-wake-bridge --wake-uri tcp://your-wake-service:10400
+docker run -p 5004:5004 wyoming-bridge --target-uri tcp://your-wyoming-service:10400
 
 # With debug logging
-docker run -p 5004:5004 wyoming-wake-bridge --wake-uri tcp://your-wake-service:10400 --debug
+docker run -p 5004:5004 wyoming-bridge --target-uri tcp://your-wyoming-service:10400 --debug
 
 # Custom bridge URI
-docker run -p 8080:8080 wyoming-wake-bridge --uri tcp://0.0.0.0:8080 --wake-uri tcp://your-wake-service:10400
+docker run -p 8080:8080 wyoming-bridge --uri tcp://0.0.0.0:8080 --target-uri tcp://your-wyoming-service:10400
 ```
 
 ## Docker Compose Example
 
 ```yaml
-version: '3.8'
+version: "3.8"
 services:
-  wake-bridge:
+  wyoming-bridge:
     build: .
     ports:
       - "5004:5004"
-    command: ["python", "-m", "wake_bridge", "--uri", "tcp://0.0.0.0:5004", "--wake-uri", "tcp://wake-service:10400"]
+    command:
+      [
+        "python",
+        "-m",
+        "wyoming_bridge",
+        "--uri",
+        "tcp://0.0.0.0:5004",
+        "--target-uri",
+        "tcp://wyoming-service:10400",
+      ]
     depends_on:
-      - wake-service
-  
-  # Your wake word detection service
-  wake-service:
-    # ... wake service configuration
+      - wyoming-service
+
+  # Your Wyoming service
+  wyoming-service:
+    # ... wyoming service configuration
 ```
 
 ## Environment Variables

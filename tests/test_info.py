@@ -132,7 +132,7 @@ def test_enrich_asr_info(sample_asr_info):
     
     # Check that artifact properties are applied
     assert asr_service.name == "bridge-to-" + "test-asr"
-    assert asr_service.description == "Wyoming Wake Bridge to: " + "Test ASR service"
+    assert asr_service.description == "Wyoming Bridge to: " + "Test ASR service"
     assert asr_service.version == artifact.version
     assert asr_service.installed == artifact.installed
     assert asr_service.attribution.name == artifact.attribution.name
@@ -166,7 +166,7 @@ def test_enrich_tts_info(sample_tts_info):
     
     # Check that artifact properties are applied
     assert tts_service.name == "bridge-to-" + "test-tts"
-    assert tts_service.description == "Wyoming Wake Bridge to: " + "Test TTS service"
+    assert tts_service.description == "Wyoming Bridge to: " + "Test TTS service"
     assert tts_service.attribution.name == artifact.attribution.name
     assert tts_service.attribution.url == artifact.attribution.url
     assert tts_service.version == artifact.version
@@ -195,7 +195,7 @@ def test_enrich_wake_info(sample_wake_info):
     
     # Check that artifact properties are applied
     assert wake_service.name == "bridge-to-" + "test-wake-service"
-    assert wake_service.description == "Wyoming Wake Bridge to: " + "Test wake service"
+    assert wake_service.description == "Wyoming Bridge to: " + "Test wake service"
     assert wake_service.attribution.name == artifact.attribution.name
     assert wake_service.attribution.url == artifact.attribution.url
     assert wake_service.version == artifact.version
@@ -224,7 +224,7 @@ def test_enrich_satellite_info(sample_satellite_info):
     
     # Check that artifact properties are applied
     assert satellite.name == "bridge-to-" + "test-satellite"
-    assert satellite.description == "Wyoming Wake Bridge to: " + "Test satellite"
+    assert satellite.description == "Wyoming Bridge to: " + "Test satellite"
     assert satellite.version == artifact.version
     assert satellite.installed == artifact.installed
     assert satellite.attribution.name == artifact.attribution.name
@@ -249,7 +249,7 @@ def test_enrich_mic_info(sample_mic_info):
     
     # Check that artifact properties are applied
     assert mic_service.name == "bridge-to-" + "test-mic"
-    assert mic_service.description == "Wyoming Wake Bridge to: " + "Test microphone"
+    assert mic_service.description == "Wyoming Bridge to: " + "Test microphone"
     assert mic_service.version == artifact.version
     assert mic_service.installed == artifact.installed
     assert mic_service.attribution.name == artifact.attribution.name
@@ -308,7 +308,7 @@ def test_enrich_multiple_services(sample_attribution):
     # Check both services are enriched
     for i, asr_service in enumerate(enriched_info.asr):
         expected_name = f"bridge-to-asr{i+1}"
-        expected_desc = f"Wyoming Wake Bridge to: ASR {i+1}"
+        expected_desc = f"Wyoming Bridge to: ASR {i+1}"
         assert asr_service.name == expected_name
         assert asr_service.description == expected_desc
         assert asr_service.version == artifact.version
@@ -360,7 +360,7 @@ def test_handle_none_values(sample_attribution):
     
     # Should handle None values gracefully
     assert asr_service.name == "bridge-to-" + "test-asr"
-    assert asr_service.description == "Wyoming Wake Bridge to: " + "Test service"
+    assert asr_service.description == "Wyoming Bridge to: " + "Test service"
 
 
 def test_all_service_types(sample_attribution):
@@ -418,6 +418,6 @@ def test_all_service_types(sample_attribution):
         assert len(services) == 1
         service = services[0]
         assert service.name.startswith("bridge-to-")
-        assert service.description.startswith("Wyoming Wake Bridge to: ")
+        assert service.description.startswith("Wyoming Bridge to: ")
         assert service.version == artifact.version
         assert service.attribution.name == artifact.attribution.name

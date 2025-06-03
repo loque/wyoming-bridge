@@ -7,11 +7,11 @@ from functools import partial
 
 from wyoming.server import AsyncServer
 
-from wyoming_bridge.bridge import WakeBridge
+from wyoming_bridge.bridge import WyomingBridge
 from wyoming_bridge.processors import get_processors
 from wyoming_bridge.settings import BridgeSettings, ServiceSettings
 
-from .handler import WakeBridgeEventHandler
+from .handler import WyomingBridgeEventHandler
 
 from . import __version__
 
@@ -24,7 +24,7 @@ def parse_arguments():
                         default="tcp://0.0.0.0:11000")
 
     parser.add_argument(
-        "--wake-uri", help="URI of Wyoming wake word detection service")
+        "--target-uri", help="URI of Wyoming target service")
 
     parser.add_argument(
         "--processors-path", help="Path to the processors configuration file", default="config.yml")
@@ -35,7 +35,7 @@ def parse_arguments():
 
 
 async def main() -> None:
-    """Main function to run the Wake Bridge."""
+    """Main function to run the Wyoming Bridge."""
     args = parse_arguments()
 
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO)
@@ -46,26 +46,26 @@ async def main() -> None:
 
     bridge_settings = BridgeSettings(
         target=ServiceSettings(
-            uri=args.wake_uri,
+            uri=args.target_uri,
         ),
         processors=processors,
     )
 
-    # Initialize and start WakeBridge
-    wake_bridge = WakeBridge(bridge_settings)
-    wake_bridge_task = asyncio.create_task(
-        wake_bridge.run(), name="wake bridge")
+    # Initialize and start WyomingBridge
+    wyoming_bridge = WyomingBridge(bridge_settings)
+    wyoming_bridge_task = asyncio.create_task(
+        wyoming_bridge.run(), name="wyoming bridge")
 
     # Initialize Wyoming server
     wyoming_server = AsyncServer.from_uri(args.uri)
 
     try:
-        await wyoming_server.run(partial(WakeBridgeEventHandler, wake_bridge))
+        await wyoming_server.run(partial(WyomingBridgeEventHandler, wyoming_bridge))
     except KeyboardInterrupt:
         pass
     finally:
-        await wake_bridge.stop()
-        await wake_bridge_task
+        await wyoming_bridge.stop()
+        await wyoming_bridge_task
 
 
 def handle_stop_signal(*args):

@@ -4,15 +4,15 @@ import time
 from wyoming.event import Event
 from wyoming.server import AsyncEventHandler
 
-from wyoming_bridge.bridge import WakeBridge
+from wyoming_bridge.bridge import WyomingBridge
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class WakeBridgeEventHandler(AsyncEventHandler):
-    """Handle Wake Bridge events."""
+class WyomingBridgeEventHandler(AsyncEventHandler):
+    """Handle Wyoming Bridge events."""
 
-    def __init__(self, bridge: WakeBridge, *args, **kwargs) -> None:
+    def __init__(self, bridge: WyomingBridge, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
         self.bridge = bridge
