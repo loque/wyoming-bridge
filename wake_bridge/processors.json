@@ -12,7 +12,17 @@
       },
       "uri": {
         "type": "string",
-        "pattern": "^tcp://[a-zA-Z0-9_.:-]+$"
+        "oneOf": [
+          {
+            "pattern": "^unix://.+"
+          },
+          {
+            "pattern": "^stdio://$"
+          },
+          {
+            "pattern": "^tcp://[a-zA-Z0-9_.-]+:[0-9]+$"
+          }
+        ]
       },
       "subscriptions": {
         "type": "array",
