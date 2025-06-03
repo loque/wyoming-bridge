@@ -252,6 +252,7 @@ class WakeBridge(LifecycleManager):
         _LOGGER.debug("Event received from processor: %s", event.type)
         
         # Check if this is an enricher response by looking for correlation ID in event data
+        # composed_correlation_id format: {correlation ID}_{processor ID}
         composed_correlation_id = self._extract_correlation_id(event)
         if not composed_correlation_id:
             _LOGGER.debug("Non-enricher processor event received: %s", event.type)
@@ -263,7 +264,7 @@ class WakeBridge(LifecycleManager):
             _LOGGER.debug("No pending enrichment found for correlation_id %s", composed_correlation_id)
             return
         
-        await self._handle_enricher_response(composed_correlation_id, event)
+        await self._handle_enricher_response(correlation_id, composed_correlation_id, event)
         
     def _enrich_wyoming_info(self, event: Event) -> Event:
         """Enhance bridge info with target info."""
@@ -387,12 +388,8 @@ class WakeBridge(LifecycleManager):
             await self._publish_target_event(event)
             del self._enrichment_trackers[correlation_id]
 
-    async def _handle_enricher_response(self, composed_correlation_id: CorrelationId, enricher_event: Event) -> None:
+    async def _handle_enricher_response(self, correlation_id: CorrelationId, composed_correlation_id: CorrelationId, enricher_event: Event) -> None:
         """Handle response from enricher processor."""
-        # Extract base correlation ID from enricher-specific correlation ID  
-        # composed_correlation_id format: {correlation ID}_{processor ID}
-        correlation_id = self._extract_base_correlation_id(composed_correlation_id)
-        
         tracker = self._enrichment_trackers.get(correlation_id)
         if not tracker:
             _LOGGER.warning("Received enricher response for unknown base correlation_id: %s", correlation_id)
@@ -466,16 +463,15 @@ class WakeBridge(LifecycleManager):
         
         return None
 
-    def _extract_base_correlation_id(self, enricher_correlation_id: CorrelationId) -> CorrelationId:
+    def _extract_base_correlation_id(self, composed_correlation_id: CorrelationId) -> CorrelationId:
         """Extract base correlation ID from enricher-specific correlation ID."""
-        # enricher_correlation_id format: "base_correlation_id_processor_id"
-        # Find the last underscore and extract everything before it
-        parts = enricher_correlation_id.rsplit('_', 1)
+        # composed_correlation_id format: {correlation ID}_{processor ID}
+        parts = composed_correlation_id.rsplit('_', 1)
         if len(parts) > 1:
             return CorrelationId(parts[0])
         else:
             # Fallback - return the correlation_id as-is
-            return enricher_correlation_id
+            return composed_correlation_id
 
     def _merge_enricher_responses(self, original_event: Event, enriched_responses: Dict[CorrelationId, Event]) -> Event:
         """Merge enricher responses with the original event."""
@@ -485,30 +481,21 @@ class WakeBridge(LifecycleManager):
         # Start with original event data
         merged_data = original_event.data.copy() if original_event.data else {}
         
-        # Remove correlation_id from final output
-        merged_data.pop("correlation_id", None)
-        
         # Merge data from all enricher responses
         for enricher_event in enriched_responses.values():
-            if enricher_event.data:
-                # Create a copy to avoid modifying original
-                enricher_data = enricher_event.data.copy()
-                enricher_data.pop("correlation_id", None)  # Remove correlation_id
-                
-                # Merge enricher data into merged_data
-                for key, value in enricher_data.items():
-                    if key not in merged_data:
-                        merged_data[key] = value
-                    elif isinstance(merged_data[key], dict) and isinstance(value, dict):
-                        # Deep merge dictionaries
-                        merged_data[key] = {**merged_data[key], **value}
-                    elif isinstance(merged_data[key], list) and isinstance(value, list):
-                        # Concatenate lists
-                        merged_data[key] = merged_data[key] + value
-                    else:
-                        # For other types, enricher value takes precedence
-                        merged_data[key] = value
-        
+            if not enricher_event.data:
+                continue
+
+            # Create a copy to avoid modifying original
+            enricher_data = enricher_event.data.copy()
+            
+            # Shallow merge enricher data, overwriting existing keys
+            for key, value in enricher_data.items():
+                merged_data[key] = value
+
+         # Remove correlation_id from final output
+        merged_data.pop("correlation_id", None)
+
         # Create final enriched event
         enriched_event = Event(
             type=original_event.type,
