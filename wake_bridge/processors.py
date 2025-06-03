@@ -38,7 +38,7 @@ Processors = List[Processor]
 
 
 def validate_processors_config(processors, schema_path: str):
-    """Validate processors config against the JSON schema."""
+    """Validate processors config."""
     with open(schema_path, "r") as schema_file:
         # Remove any comments (jsonschema does not support them)
         schema_str = schema_file.read()
@@ -47,6 +47,15 @@ def validate_processors_config(processors, schema_path: str):
             line for line in schema_str.splitlines() if not line.strip().startswith('//')
         )
         schema = json.loads(schema_str)
+
+    # Check for unique processor IDs
+    ids = [proc.get("id") for proc in processors]
+    if len(ids) != len(set(ids)):
+        duplicates = set([x for x in ids if ids.count(x) > 1])
+        _LOGGER.error(
+            f"Duplicate processor IDs found: {', '.join(duplicates)}")
+        raise ValueError(
+            f"Duplicate processor IDs found: {', '.join(duplicates)}")
 
     try:
         jsonschema.validate(instance=processors, schema=schema)
