@@ -136,9 +136,8 @@ def load_processors(config_path: str) -> Processors:
             _LOGGER.debug("Processors configuration loaded successfully.")
             return cast(Processors, processors)
     except FileNotFoundError:
-        _LOGGER.error(
-            f"Processors configuration file not found: {config_path}")
-        raise
+        _LOGGER.warning(f"Processors configuration file not found in {config_path}. No processors will be loaded.")
+        return []
     except yaml.YAMLError as e:
         _LOGGER.error(f"Error parsing processors configuration: {e}")
         raise
