@@ -32,6 +32,7 @@ class EnrichmentTracker:
     """Tracks enrichment process for a correlation ID."""
     correlation_id: CorrelationId
     original_event: Event
+    origin: str  # "source" or "target" to distinguish enrichment origin
     pending_enrichers: Set[CorrelationId] = field(default_factory=set)
     enriched_responses: Dict[CorrelationId, Event] = field(default_factory=dict)
     completed: bool = False
@@ -197,6 +198,10 @@ class WakeBridge(LifecycleManager):
         self._processor_connections.clear()
         _LOGGER.debug("Disconnected from all processors")
 
+    def _filter_subscriptions_by_origin(self, subscriptions: List[ProcessorSubscription], origin: str) -> List[ProcessorSubscription]:
+        """Filter subscriptions by the specified origin."""
+        return [sub for sub in subscriptions if sub.subscription.get("origin") == origin]
+
     # Event handling
     async def on_source_event(self, event: Event) -> None:
         """Called when an event is received from source."""
@@ -212,21 +217,17 @@ class WakeBridge(LifecycleManager):
         
         # Check for enricher subscriptions for source events
         enricher_subs = self._enricher_subscriptions.get(event_type, [])
-        if enricher_subs:
+        # Filter enricher subscriptions to only include those with origin "source"
+        source_enricher_subs = self._filter_subscriptions_by_origin(enricher_subs, "source")
+        
+        if source_enricher_subs:
             # Start enrichment process - send to enrichers and wait for all responses
             correlation_id = self._generate_correlation_id()
-            _LOGGER.debug("Starting enrichment process for source event %s with %d enrichers (%s)", event.type, len(enricher_subs), correlation_id)
-            # TODO: For now, skip enricher processing until future iteration
-            # await self._process_enrichers(event, correlation_id, enricher_subs)
-        
-        # Send event to target service
-        await self._target_conn.send_event(event)
-
-        # Send event to observer processors in parallel (after target processing)
-        observer_subs = self._observer_subscriptions.get(event_type, [])
-        if observer_subs:
-            _LOGGER.debug("Sending event to %d observer processors for event %s", len(observer_subs), event.type)
-            await self._send_to_observers(event, observer_subs)
+            _LOGGER.debug("Starting enrichment process for source event %s with %d enrichers (%s)", event.type, len(source_enricher_subs), correlation_id)
+            await self._notify_source_enrichers(event, correlation_id, source_enricher_subs)
+        else:
+            # No source enrichers - send directly to target and observers
+            await self._publish_source_event(event)
 
     async def on_target_event(self, event: Event) -> None:
         """Called when an event is received from the target service."""
@@ -237,14 +238,17 @@ class WakeBridge(LifecycleManager):
         event_type = SubscriptionEvent(event.type)
 
         enricher_subs = self._enricher_subscriptions.get(event_type, [])
-        if enricher_subs:
+        # Filter enricher subscriptions to only include those with origin "target"
+        target_enricher_subs = self._filter_subscriptions_by_origin(enricher_subs, "target")
+        
+        if target_enricher_subs:
             # Start enrichment process - send to enrichers and wait for all responses
             correlation_id = self._generate_correlation_id()
-            _LOGGER.debug("Starting enrichment process for event %s with %d enrichers (%s)", event.type, len(enricher_subs), correlation_id)
+            _LOGGER.debug("Starting enrichment process for target event %s with %d enrichers (%s)", event.type, len(target_enricher_subs), correlation_id)
             
-            await self._notify_target_enrichers(event, correlation_id, enricher_subs)
+            await self._notify_target_enrichers(event, correlation_id, target_enricher_subs)
         else:
-            # No enrichers - send directly to source and observers
+            # No target enrichers - send directly to source and observers
             await self._publish_target_event(event)
 
     async def on_processor_event(self, event: Event) -> None:
@@ -350,6 +354,7 @@ class WakeBridge(LifecycleManager):
         tracker = EnrichmentTracker(
             correlation_id=correlation_id,
             original_event=event,
+            origin="target",
             pending_enrichers=set(),
             enriched_responses={},
             completed=False
@@ -388,6 +393,51 @@ class WakeBridge(LifecycleManager):
             await self._publish_target_event(event)
             del self._enrichment_trackers[correlation_id]
 
+    async def _notify_source_enrichers(self, event: Event, correlation_id: CorrelationId, enricher_subs: List[ProcessorSubscription]) -> None:
+        """Send event to enricher processors and track the enrichment process for source events."""
+        # Create enrichment tracker
+        tracker = EnrichmentTracker(
+            correlation_id=correlation_id,
+            original_event=event,
+            origin="source",
+            pending_enrichers=set(),
+            enriched_responses={},
+            completed=False
+        )
+        
+        # Send to all enricher processors
+        for proc_sub in enricher_subs:
+            processor_conn = self._processor_connections.get(proc_sub.processor_id)
+            if not processor_conn:
+                _LOGGER.warning("Processor connection not found for enricher %s", proc_sub.processor_id)
+                continue
+
+            # Create composed correlation ID for the event to enrich
+            composed_correlation_id = CorrelationId(f"{correlation_id}_{proc_sub.processor_id}")
+            event_to_enrich = self._add_correlation_id(event, composed_correlation_id)
+            
+            # Track this enricher as pending
+            tracker.pending_enrichers.add(composed_correlation_id)
+            
+            _LOGGER.debug("Sending event to enricher %s with correlation_id %s", proc_sub.processor_id, composed_correlation_id)
+            
+            try:
+                await processor_conn.send_event(event_to_enrich)
+            except Exception:
+                _LOGGER.exception("Failed to send event to enricher %s", proc_sub.processor_id)
+                # Remove from pending since it failed
+                tracker.pending_enrichers.discard(composed_correlation_id)
+                
+        
+        # Store the tracker
+        self._enrichment_trackers[correlation_id] = tracker
+        
+        # If no enrichers were successfully contacted, finalize immediately
+        if not tracker.pending_enrichers:
+            _LOGGER.debug("No enrichers available, finalizing event immediately")
+            await self._publish_source_event(event)
+            del self._enrichment_trackers[correlation_id]
+
     async def _handle_enricher_response(self, correlation_id: CorrelationId, composed_correlation_id: CorrelationId, enricher_event: Event) -> None:
         """Handle response from enricher processor."""
         tracker = self._enrichment_trackers.get(correlation_id)
@@ -419,23 +469,52 @@ class WakeBridge(LifecycleManager):
         # Mark as completed
         tracker.completed = True
         
-        # Finalize the enriched event
-        await self._publish_target_event(enriched_event)
+        # Finalize the enriched event based on origin
+        if tracker.origin == "source":
+            await self._publish_source_event(enriched_event)
+        else:  # target
+    async def _publish_target_event(self, event: Event) -> None:
+        """Send final event to source and target observers."""
+        if not self._source_conn:
+            # TODO: improve error handling
+            raise RuntimeError("Source connection is not established")
         
-        # Clean up tracker
-        del self._enrichment_trackers[correlation_id]
+        # Forward event to source
+        await self._source_conn.send_event(event)
 
     async def _publish_target_event(self, event: Event) -> None:
-        """Send final event to source and observers."""
+        """Send final event to source and target observers."""
         # Forward event to source
         await self._source_conn.send_event(event)
         
-        # Notify all observer subscribers for this event type
+        # Notify observer subscribers for target events
         event_type = SubscriptionEvent(event.type)
         observer_subs = self._observer_subscriptions.get(event_type, [])
-        if observer_subs:
-            _LOGGER.debug("Sending event to %d observer processors for event %s", len(observer_subs), event.type)
-            await self._send_to_observers(event, observer_subs)
+        # Filter observer subscriptions to only include those with origin "target"
+        target_observer_subs = self._filter_subscriptions_by_origin(observer_subs, "target")
+        
+        if target_observer_subs:
+            _LOGGER.debug("Sending event to %d target observer processors for event %s", len(target_observer_subs), event.type)
+            await self._send_to_observers(event, target_observer_subs)
+
+    async def _publish_source_event(self, event: Event) -> None:
+        """Send enriched source event to target and source observers."""
+        if self._target_conn is None:
+            # TODO: improve error handling
+            raise RuntimeError("Target connection is not established")
+            
+        # Send event to target service
+        await self._target_conn.send_event(event)
+
+        # Send event to observer processors for source events
+        event_type = SubscriptionEvent(event.type)
+        observer_subs = self._observer_subscriptions.get(event_type, [])
+        # Filter observer subscriptions to only include those with origin "source"
+        source_observer_subs = self._filter_subscriptions_by_origin(observer_subs, "source")
+        
+        if source_observer_subs:
+            _LOGGER.debug("Sending event to %d source observer processors for event %s", len(source_observer_subs), event.type)
+            await self._send_to_observers(event, source_observer_subs)
 
     def _add_correlation_id(self, event: Event, correlation_id: CorrelationId) -> Event:
         """Add correlation ID to event data."""
@@ -507,9 +586,3 @@ class WakeBridge(LifecycleManager):
         _LOGGER.debug("Merged %d enricher responses into event %s", len(enriched_responses), original_event.type)
         
         return enriched_event
-
-    # TODO: Future iteration methods for enricher processing
-    # async def _process_enrichers(self, event: Event, correlation_id: str, enricher_subs: List[ProcessorSubscription]) -> Event:
-    #     """Process enricher subscribers and wait for responses."""
-    #     # Implementation for future iteration
-    #     pass
