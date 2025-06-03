@@ -2,7 +2,7 @@ services:
   target:
     build: ./target
     image: wyoming-bridge/target-demo
-    container_name: wyoming-target
+    container_name: wyoming-target-demo
     ports:
       - "9001:9001"
     entrypoint: python3
@@ -14,7 +14,7 @@ services:
   logger:
     build: ./logger
     image: wyoming-bridge/logger-demo
-    container_name: wyoming-logger
+    container_name: wyoming-logger-demo
     ports:
       - "9000:9000"
     entrypoint: python3
@@ -26,7 +26,7 @@ services:
   wyoming-bridge:
     build: ../wyoming_bridge
     image: wyoming-bridge/bridge-demo
-    container_name: wyoming-bridge
+    container_name: wyoming-bridge-demo
     depends_on:
       - logger
       - target
