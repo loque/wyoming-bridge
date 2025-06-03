@@ -74,7 +74,7 @@ def load_processors_config(processors_path: str):
 
 
 def config_to_processor(processors_config: list) -> Processors:
-    """Recursively convert 'from' to 'from_' in subscriptions for Python compatibility."""
+    """Recursively convert 'processor configs' to 'Processor'."""
     result = []
     for proc in processors_config:
         new_proc = dict(proc)
