@@ -2,7 +2,9 @@
 
 import asyncio
 import logging
-from typing import Optional
+import uuid
+from typing import NewType, Optional, Dict, List, Set
+from dataclasses import dataclass, field
 
 from wyoming.audio import AudioChunk
 from wyoming.event import Event
@@ -11,8 +13,28 @@ from wyoming.info import Info
 from wake_bridge.settings import BridgeSettings
 from wake_bridge.connections import DownstreamConnection, UpstreamConnection
 from wake_bridge.state_manager import LifecycleManager, BaseState
+from wake_bridge.processors import Subscription, ProcessorId, SubscriptionEvent
 
 _LOGGER = logging.getLogger(__name__)
+
+CorrelationId = NewType('CorrelationId', str)
+
+
+@dataclass
+class ProcessorSubscription:
+    """Enhanced subscription info with processor reference."""
+    processor_id: ProcessorId
+    subscription: Subscription
+
+
+@dataclass
+class EnrichmentTracker:
+    """Tracks enrichment process for a correlation ID."""
+    correlation_id: CorrelationId
+    original_event: Event
+    pending_enrichers: Set[CorrelationId] = field(default_factory=set)
+    enriched_responses: Dict[CorrelationId, Event] = field(default_factory=dict)
+    completed: bool = False
 
 
 class WakeBridge(LifecycleManager):
@@ -31,8 +53,19 @@ class WakeBridge(LifecycleManager):
         self._source_conn = UpstreamConnection("source")
         self._target_conn: Optional[DownstreamConnection] = None
 
+        # Processor connections and subscriptions
+        self._processor_connections: Dict[ProcessorId, DownstreamConnection] = {}
+        self._enricher_subscriptions: Dict[SubscriptionEvent, List[ProcessorSubscription]] = {}
+        self._observer_subscriptions: Dict[SubscriptionEvent, List[ProcessorSubscription]] = {}
+
+        # Track ongoing enrichment processes
+        self._pending_enrichments: Dict[CorrelationId, EnrichmentTracker] = {}
+
         self.wyoming_info: Info = settings.wyoming_info or Info()
         self.wyoming_info_enriched = False
+
+        # Initialize subscription indexes
+        self._build_subscription_indexes()
 
     @property
     def event_handler_id(self) -> Optional[str]:
@@ -81,8 +114,9 @@ class WakeBridge(LifecycleManager):
     async def _on_restarting(self) -> None:
         """Handle RESTARTING state."""
         await self._disconnect_downstream()
-        _LOGGER.debug("Restarting bridge in %s second(s)",
-                      self.settings.restart_timeout)
+
+        _LOGGER.debug("Restarting bridge in %s second(s)", self.settings.restart_timeout)
+
         await asyncio.sleep(self.settings.restart_timeout)
         await self._state_machine.transition_to(BaseState.NOT_STARTED)
 
@@ -106,8 +140,7 @@ class WakeBridge(LifecycleManager):
             # TODO: improve error handling
             raise ValueError("Target URI must be set in settings")
 
-        _LOGGER.debug("Connecting to target service: %s",
-                      self.settings.target.uri)
+        _LOGGER.debug("Connecting to target service: %s", self.settings.target.uri)
         self._target_conn = DownstreamConnection(
             name="target",
             uri=self.settings.target.uri,
@@ -116,8 +149,35 @@ class WakeBridge(LifecycleManager):
         )
         await self._target_conn.start()
 
+        # Connect to all configured processors
+        await self._connect_processors()
+
+    async def _connect_processors(self) -> None:
+        """Establish connections to all configured processors."""
+        for processor in self.settings.processors:
+            processor_id = ProcessorId(processor["id"])
+            processor_uri = processor["uri"]
+
+            _LOGGER.debug("Connecting to processor %s at %s", processor_id, processor_uri)
+
+            processor_conn = DownstreamConnection(
+                name=f"processor_{processor_id}",
+                uri=processor_uri,
+                # TODO: processors may have their own reconnect settings
+                reconnect_seconds=self.settings.target.reconnect_seconds,
+                event_callback=self.on_processor_event
+            )
+
+            self._processor_connections[processor_id] = processor_conn
+            await processor_conn.start()
+
+        _LOGGER.info("Connected to %d processors", len(self._processor_connections))
+
     async def _disconnect_downstream(self) -> None:
         """Disconnects from running services."""
+        # Stop processor connections
+        await self._disconnect_processors()
+
         # Stop target connection
         if self._target_conn is not None:
             await self._target_conn.stop()
@@ -127,6 +187,15 @@ class WakeBridge(LifecycleManager):
         await self._source_conn.stop()
 
         _LOGGER.debug("Disconnected from services")
+
+    async def _disconnect_processors(self) -> None:
+        """Disconnect from all processor connections."""
+        for processor_id, connection in self._processor_connections.items():
+            _LOGGER.debug("Disconnecting from processor %s", processor_id)
+            await connection.stop()
+
+        self._processor_connections.clear()
+        _LOGGER.debug("Disconnected from all processors")
 
     # Event handling
     async def on_source_event(self, event: Event) -> None:
@@ -139,7 +208,25 @@ class WakeBridge(LifecycleManager):
         if not AudioChunk.is_type(event.type):
             _LOGGER.debug("Event received from source: %s", event.type)
 
+        # Generate correlation ID for tracking this event's processing
+        correlation_id = self._generate_correlation_id()
+
+        # Step 1: Handle enricher processors if any are subscribed to this event
+        event_type = SubscriptionEvent(event.type)
+        enricher_subs = self._enricher_subscriptions.get(event_type, [])
+        if enricher_subs:
+            _LOGGER.debug("Found %d enricher subscriptions for event %s", len(enricher_subs), event.type)
+            # TODO: For now, skip enricher processing until future iteration
+            # await self._process_enrichers(event, correlation_id, enricher_subs)
+
+        # Step 2: Send event to target service
         await self._target_conn.send_event(event)
+
+        # Step 3: Send event to observer processors in parallel (after target processing)
+        observer_subs = self._observer_subscriptions.get(event_type, [])
+        if observer_subs:
+            _LOGGER.debug("Sending event to %d observer processors for event %s", len(observer_subs), event.type)
+            await self._send_to_observers(event, observer_subs)
 
     async def on_target_event(self, event: Event) -> None:
         """Called when an event is received from the target service."""
@@ -149,6 +236,12 @@ class WakeBridge(LifecycleManager):
 
         # Forward event (enriched or not) to source
         await self._source_conn.send_event(event)
+
+    async def on_processor_event(self, event: Event) -> None:
+        """Called when an event is received from a processor (enricher responses)."""
+        _LOGGER.debug("Event received from processor: %s", event.type)
+        # TODO: In future iterations, handle enricher response correlation
+        # For now, just log the event as requested
 
     def _enrich_wyoming_info(self, event: Event) -> Event:
         """Enhance bridge info with target info."""
@@ -168,3 +261,71 @@ class WakeBridge(LifecycleManager):
 
         self.wyoming_info_enriched = True
         return self.wyoming_info.event()
+
+    def _build_subscription_indexes(self) -> None:
+        """Build indexed lookups for processor subscriptions."""
+        self._enricher_subscriptions.clear()
+        self._observer_subscriptions.clear()
+
+        for processor in self.settings.processors:
+            for subscription in processor["subscriptions"]:
+                event_type_str = subscription.get("event", "")
+                if not event_type_str:
+                    continue
+
+                # Convert to proper types
+                event_type = SubscriptionEvent(event_type_str)
+                processor_id = ProcessorId(processor["id"])
+
+                processor_sub = ProcessorSubscription(
+                    processor_id=processor_id,
+                    subscription=subscription
+                )
+
+                role = subscription.get("role", "observer")
+                if role == "enricher":
+                    if event_type not in self._enricher_subscriptions:
+                        self._enricher_subscriptions[event_type] = []
+                    self._enricher_subscriptions[event_type].append(
+                        processor_sub)
+                else:  # observer
+                    if event_type not in self._observer_subscriptions:
+                        self._observer_subscriptions[event_type] = []
+                    self._observer_subscriptions[event_type].append(
+                        processor_sub)
+
+    def _generate_correlation_id(self) -> CorrelationId:
+        """Generate a unique correlation ID for event tracking."""
+        return CorrelationId(str(uuid.uuid4()))
+
+    async def _send_to_observers(self, event: Event, observer_subs: List[ProcessorSubscription]) -> None:
+        """Send event to observer processors in parallel."""
+        if not observer_subs:
+            return
+
+        # Create tasks to send event to all observer processors
+        tasks = []
+        for proc_sub in observer_subs:
+            processor_conn = self._processor_connections.get(proc_sub.processor_id)
+            if processor_conn:
+                task = asyncio.create_task(
+                    processor_conn.send_event(event),
+                    name=f"observer_{proc_sub.processor_id}_{event.type}"
+                )
+                tasks.append(task)
+            else:
+                _LOGGER.warning("Processor connection not found for %s", proc_sub.processor_id)
+
+        # Wait for all observer notifications to complete (fire and forget)
+        if tasks:
+            try:
+                await asyncio.gather(*tasks, return_exceptions=True)
+                _LOGGER.debug("Sent event to %d observer processors", len(tasks))
+            except Exception:
+                _LOGGER.exception("Error sending event to observer processors")
+
+    # TODO: Future iteration methods for enricher processing
+    # async def _process_enrichers(self, event: Event, correlation_id: str, enricher_subs: List[ProcessorSubscription]) -> Event:
+    #     """Process enricher subscribers and wait for responses."""
+    #     # Implementation for future iteration
+    #     pass
