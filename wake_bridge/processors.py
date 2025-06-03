@@ -6,22 +6,25 @@ import json
 import jsonschema
 
 # Typing imports
-from typing import List, TypedDict, Literal, Optional, cast, Any
+from typing import List, TypedDict, Literal, cast, NewType
 
 _LOGGER = logging.getLogger(__name__)
 
-# Prossessor types
+ProcessorId = NewType('ProcessorId', str)
+SubscriptionEvent = NewType('SubscriptionEvent', str)
+
+# Processor types
 
 
 class SubscriptionEnricher(TypedDict, total=False):
-    event: str
-    from_: Literal["source", "target"]
+    event: SubscriptionEvent
+    origin: Literal["source", "target"]
     role: Literal["enricher"]
-    depends_on: List[str]
+    depends_on: List[ProcessorId]
 
 
 class SubscriptionObserver(TypedDict):
-    event: str
+    event: SubscriptionEvent
     origin: Literal["source", "target"]
     role: Literal["observer"]
     # 'depends_on' not allowed
@@ -31,7 +34,7 @@ Subscription = SubscriptionObserver | SubscriptionEnricher
 
 
 class Processor(TypedDict):
-    id: str
+    id: ProcessorId
     uri: str
     subscriptions: List[Subscription]
 
@@ -42,16 +45,16 @@ Processors = List[Processor]
 # Processor config types
 
 class ProcessorConfigSubscription(TypedDict, total=False):
-    """Raw subscription from config file (uses 'origin' instead of 'from_')"""
-    event: str
-    origin: Literal["source", "target"]  # Note: 'origin' not 'from_'
+    """Raw subscription from config file"""
+    event: SubscriptionEvent
+    origin: Literal["source", "target"]
     role: Literal["observer", "enricher"]
-    depends_on: List[str]
+    depends_on: List[ProcessorId]
 
 
 class ProcessorConfig(TypedDict):
     """Raw processor configuration from config file"""
-    id: str
+    id: ProcessorId
     uri: str
     subscriptions: List[ProcessorConfigSubscription]
 
@@ -166,7 +169,9 @@ def load_processors_config(processors_path: str) -> ProcessorsConfig:
         _LOGGER.error(f"Error parsing processors configuration: {e}")
         raise
 
-
+# TODO: do we really need this? It seems to be a duplicate of the
+# `Processors` type, but without the type checking. Can't we just convert
+# `Processors` directly?
 def config_to_processor(processors_config: ProcessorsConfig) -> Processors:
     """Recursively convert 'processor configs' to 'Processor'."""
     result = []
@@ -175,11 +180,6 @@ def config_to_processor(processors_config: ProcessorsConfig) -> Processors:
         new_subs = []
         for sub in proc["subscriptions"]:
             new_sub = dict(sub)
-            if "from" in new_sub:
-                new_sub["from_"] = new_sub.pop("from")
-            elif "origin" in new_sub:
-                new_sub["from_"] = new_sub["origin"]
-                del new_sub["origin"]
             new_subs.append(new_sub)
         new_proc["subscriptions"] = new_subs
         result.append(new_proc)
