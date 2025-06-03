@@ -37,8 +37,11 @@ class Processor(TypedDict):
 Processors = List[Processor]
 
 
-def validate_processors_config(processors, schema_path: str):
+def validate_processors_config(processors):
     """Validate processors config."""
+
+    # Validate the processors configuration against a JSON schema.
+    schema_path = os.path.join(os.path.dirname(__file__), "processors.json")
     with open(schema_path, "r") as schema_file:
         # Remove any comments (jsonschema does not support them)
         schema_str = schema_file.read()
@@ -48,6 +51,14 @@ def validate_processors_config(processors, schema_path: str):
         )
         schema = json.loads(schema_str)
 
+    try:
+        jsonschema.validate(instance=processors, schema=schema)
+        _LOGGER.info("Processors configuration is valid.")
+    except jsonschema.ValidationError as err:
+        _LOGGER.error(
+            f"Processors configuration validation error: {err.message}")
+        raise
+
     # Check for unique processor IDs
     ids = [proc.get("id") for proc in processors]
     if len(ids) != len(set(ids)):
@@ -56,14 +67,6 @@ def validate_processors_config(processors, schema_path: str):
             f"Duplicate processor IDs found: {', '.join(duplicates)}")
         raise ValueError(
             f"Duplicate processor IDs found: {', '.join(duplicates)}")
-
-    try:
-        jsonschema.validate(instance=processors, schema=schema)
-        _LOGGER.info("Processors configuration is valid.")
-    except jsonschema.ValidationError as err:
-        _LOGGER.error(
-            f"Processors configuration validation error: {err.message}")
-        raise
 
 
 def load_processors_config(processors_path: str):
@@ -101,6 +104,5 @@ def config_to_processor(processors_config: list) -> Processors:
 def get_processors(processors_path: str) -> Processors:
     """Get processors configuration after validation, with full typing."""
     processors_config = load_processors_config(processors_path)
-    schema_path = os.path.join(os.path.dirname(__file__), "processors.json")
-    validate_processors_config(processors_config, schema_path)
+    validate_processors_config(processors_config)
     return config_to_processor(processors_config)
