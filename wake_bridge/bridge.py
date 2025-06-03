@@ -217,7 +217,6 @@ class WakeBridge(LifecycleManager):
         
         # Check for enricher subscriptions for source events
         enricher_subs = self._enricher_subscriptions.get(event_type, [])
-        # Filter enricher subscriptions to only include those with origin "source"
         source_enricher_subs = self._filter_subscriptions_by_origin(enricher_subs, "source")
         
         if source_enricher_subs:
@@ -238,7 +237,6 @@ class WakeBridge(LifecycleManager):
         event_type = SubscriptionEvent(event.type)
 
         enricher_subs = self._enricher_subscriptions.get(event_type, [])
-        # Filter enricher subscriptions to only include those with origin "target"
         target_enricher_subs = self._filter_subscriptions_by_origin(enricher_subs, "target")
         
         if target_enricher_subs:
@@ -486,7 +484,6 @@ class WakeBridge(LifecycleManager):
         # Notify observer subscribers for target events
         event_type = SubscriptionEvent(event.type)
         observer_subs = self._observer_subscriptions.get(event_type, [])
-        # Filter observer subscriptions to only include those with origin "target"
         target_observer_subs = self._filter_subscriptions_by_origin(observer_subs, "target")
         
         if target_observer_subs:
@@ -505,7 +502,6 @@ class WakeBridge(LifecycleManager):
         # Send event to observer processors for source events
         event_type = SubscriptionEvent(event.type)
         observer_subs = self._observer_subscriptions.get(event_type, [])
-        # Filter observer subscriptions to only include those with origin "source"
         source_observer_subs = self._filter_subscriptions_by_origin(observer_subs, "source")
         
         if source_observer_subs:
