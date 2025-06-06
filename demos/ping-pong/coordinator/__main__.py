@@ -24,8 +24,8 @@ async def create_app():
         try:
             await bridge_client.connect()
             break
-        except OSError as e:
-            app.logger.warning(f"Bridge not ready, retrying in 1s: {e}")
+        except OSError:
+            app.logger.warning(f"Bridge not ready, retrying in 1s")
             await asyncio.sleep(1)
     else:
         raise RuntimeError("Could not connect to bridge after 30 seconds")
