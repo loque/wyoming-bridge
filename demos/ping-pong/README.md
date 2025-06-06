@@ -1,5 +1,11 @@
 # Wyoming Bridge Ping Pong Demo
 
+This demo showcases the Wyoming Bridge's ability to forward events to observer
+processors. It demonstrates how an observer processor—here, a simple logger—can
+receive and log all Wyoming events passing through the bridge, without affecting
+the event flow. This setup helps verify that observer processors are correctly
+integrated and functioning as intended.
+
 ## Services
 
 - **coordinator**: HTTP API to send Wyoming events to the bridge.
