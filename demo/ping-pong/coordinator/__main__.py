@@ -17,7 +17,19 @@ async def create_app():
         raise ValueError("BRIDGE_URI environment variable is not set")
 
     bridge_client = AsyncClient.from_uri(bridge_uri)
-    await bridge_client.connect()
+
+    # Wait for the bridge to be ready
+    # Retry for up to 30 seconds, every second
+    for _ in range(30):
+        try:
+            await bridge_client.connect()
+            break
+        except OSError as e:
+            app.logger.warning(f"Bridge not ready, retrying in 1s: {e}")
+            await asyncio.sleep(1)
+    else:
+        raise RuntimeError("Could not connect to bridge after 30 seconds")
+    
     app.config['BRIDGE_CLIENT'] = bridge_client
 
     app.register_blueprint(handler)

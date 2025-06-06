@@ -24,7 +24,7 @@ services:
     restart: unless-stopped
 
   wyoming-bridge:
-    build: ../wyoming_bridge
+    build: ../../wyoming_bridge
     image: wyoming-bridge/bridge-demo
     container_name: wyoming-bridge-demo
     depends_on:

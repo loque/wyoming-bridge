@@ -15,5 +15,5 @@ class EventHandler(AsyncEventHandler):
     async def handle_event(self, event: Event) -> bool:
         """Handle all Wyoming events."""
         
-        _LOGGER.info("Received event [%s]: %s", event.type, event.data)
+        _LOGGER.info("Logging event [%s]: %s", event.type, event.data)
         return True
