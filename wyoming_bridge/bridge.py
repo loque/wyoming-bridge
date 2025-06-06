@@ -493,10 +493,10 @@ class WyomingBridge(LifecycleManager):
         event_data["correlation_id"] = str(correlation_id)
         
         # Create new event with updated data
-        new_event = Event(
-            type=event.type,
-            data=event_data
-        )
+        new_event = Event.from_dict({
+            "type": event.type,
+            "data": event_data
+        })
         if event.payload:
             new_event.payload = event.payload
         return new_event
@@ -546,10 +546,10 @@ class WyomingBridge(LifecycleManager):
         merged_data.pop("correlation_id", None)
 
         # Create final enriched event
-        enriched_event = Event(
-            type=original_event.type,
-            data=merged_data
-        )
+        enriched_event = Event.from_dict({
+            "type": original_event.type,
+            "data": merged_data
+        })
         if original_event.payload:
             enriched_event.payload = original_event.payload
         
