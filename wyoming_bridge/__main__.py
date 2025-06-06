@@ -8,38 +8,36 @@ from functools import partial
 from wyoming.server import AsyncServer
 
 from wyoming_bridge.bridge import WyomingBridge
+from wyoming_bridge.loggers import configure_loggers
 from wyoming_bridge.processors import get_processors
 from wyoming_bridge.settings import BridgeSettings, ServiceSettings
 
-from .handler import WyomingBridgeEventHandler
 
+from .handler import WyomingBridgeEventHandler
 from . import __version__
 
-_LOGGER = logging.getLogger()
+_logger = logging.getLogger("main")
 
 def parse_arguments():
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--uri", help="unix:// or tcp://",
-                        default="tcp://0.0.0.0:11000")
-
-    parser.add_argument(
-        "--target-uri", help="URI of Wyoming target service")
-
-    parser.add_argument(
-        "--processors-path", help="Path to the processors configuration file", default="processors.yml")
-
-    parser.add_argument("--debug", action="store_true",
-                        help="Log DEBUG messages")
+    parser.add_argument("--uri", help="unix:// or tcp://", default="tcp://0.0.0.0:11000")
+    parser.add_argument("--target-uri", help="URI of Wyoming target service")
+    parser.add_argument("--processors-path", help="Path to the processors configuration file", default="processors.yml")
+    parser.add_argument("--log-level", dest="log_level_default", default=None, help="Default log level (e.g. INFO, DEBUG)")
+    parser.add_argument("--log-level-main", dest="log_level_main", default=None, help="Log level for main group (main, processors, handler)")
+    parser.add_argument("--log-level-bridge", dest="log_level_bridge", default=None, help="Log level for bridge group")
+    parser.add_argument("--log-level-conns", dest="log_level_conns", default=None, help="Log level for connections group")
+    parser.add_argument("--log-level-state", dest="log_level_state", default=None, help="Log level for state group")
     return parser.parse_args()
-
 
 async def main() -> None:
     """Main function to run the Wyoming Bridge."""
     args = parse_arguments()
 
-    logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO)
-    _LOGGER.debug(args)
+    configure_loggers(args)
+    _logger.info("Received stop signal. Shutting down...")
+    _logger.debug(args)
 
     # Validate and load the configured processors
     processors = get_processors(args.processors_path)
@@ -70,7 +68,7 @@ async def main() -> None:
 
 def handle_stop_signal(*args):
     """Handle shutdown signal."""
-    _LOGGER.info("Received stop signal. Shutting down...")
+    _logger.info("Received stop signal. Shutting down...")
     loop = asyncio.get_event_loop()
     loop.stop()
 

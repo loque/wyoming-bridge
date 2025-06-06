@@ -1,8 +1,6 @@
 from dataclasses import dataclass, field
 from typing import List
 
-from wyoming.info import Info
-
 from wyoming_bridge.processors import Processor
 
 

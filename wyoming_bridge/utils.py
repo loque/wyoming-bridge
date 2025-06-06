@@ -3,8 +3,7 @@ import json
 from datetime import datetime
 import logging
 
-_LOGGER = logging.getLogger(__name__)
-
+_logger = logging.getLogger("main")
 
 def to_serializable(obj):
     """Recursively convert an object to something JSON serializable."""
@@ -19,7 +18,6 @@ def to_serializable(obj):
     else:
         return str(obj)
 
-
 def write_json_file(data, filename_prefix="wyoming_info"):
     """Write data as JSON to a uniquely named file in the output directory."""
     try:
@@ -33,6 +31,6 @@ def write_json_file(data, filename_prefix="wyoming_info"):
         file_path = os.path.join(output_dir, filename)
         with open(file_path, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
-        _LOGGER.debug(f"[INFO] Data written to {file_path}")
+        _logger.debug(f"Data written to {file_path}")
     except Exception as e:
-        _LOGGER.error(f"[INFO] Failed to write data: {e}")
+        _logger.error(f"Failed to write data: {e}")

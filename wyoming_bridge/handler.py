@@ -6,8 +6,7 @@ from wyoming.server import AsyncEventHandler
 
 from wyoming_bridge.bridge import WyomingBridge
 
-_LOGGER = logging.getLogger(__name__)
-
+_logger = logging.getLogger("main")
 
 class WyomingBridgeEventHandler(AsyncEventHandler):
     """Handle Wyoming Bridge events."""
@@ -27,7 +26,7 @@ class WyomingBridgeEventHandler(AsyncEventHandler):
             await self.bridge.connect_upstream(self.event_handler_id, self.writer)
         elif self.bridge.event_handler_id != self.event_handler_id:
             # New connection
-            _LOGGER.debug("Connection cancelled: %s", self.event_handler_id)
+            _logger.debug("Connection cancelled: %s", self.event_handler_id)
             return False
 
         await self.bridge.on_source_event(event)

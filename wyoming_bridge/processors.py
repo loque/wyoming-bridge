@@ -7,7 +7,7 @@ import jsonschema
 
 from typing import List, TypedDict, Literal, cast, NewType
 
-_LOGGER = logging.getLogger(__name__)
+_logger = logging.getLogger("main")
 
 ProcessorId = NewType('ProcessorId', str)
 SubscriptionEvent = NewType('SubscriptionEvent', str)
@@ -52,9 +52,9 @@ def validate_processors_config(processors: Processors) -> None:
 
     try:
         jsonschema.validate(instance=processors, schema=schema)
-        _LOGGER.info("Processors configuration is valid.")
+        _logger.info("Processors configuration is valid.")
     except jsonschema.ValidationError as err:
-        _LOGGER.error(
+        _logger.error(
             f"Processors configuration validation error: {err.message}")
         raise
 
@@ -62,7 +62,7 @@ def validate_processors_config(processors: Processors) -> None:
     ids = [proc.get("id") for proc in processors]
     if len(ids) != len(set(ids)):
         duplicates = set([x for x in ids if ids.count(x) > 1])
-        _LOGGER.error(
+        _logger.error(
             f"Duplicate processor IDs found: {', '.join(duplicates)}")
         raise ValueError(
             f"Duplicate processor IDs found: {', '.join(duplicates)}")
@@ -79,7 +79,7 @@ def validate_processors_config(processors: Processors) -> None:
 
                 # Check if processor references itself
                 if proc_id in depends_on_list:
-                    _LOGGER.error(
+                    _logger.error(
                         f"Processor '{proc_id}' depends on itself, which is not allowed")
                     raise ValueError(
                         f"Processor '{proc_id}' cannot depend on itself")
@@ -87,7 +87,7 @@ def validate_processors_config(processors: Processors) -> None:
                 # Check if all referenced IDs exist
                 for dep_id in depends_on_list:
                     if dep_id not in processor_ids:
-                        _LOGGER.error(
+                        _logger.error(
                             f"Processor '{proc_id}' depends on non-existent processor '{dep_id}'")
                         raise ValueError(
                             f"Processor '{proc_id}' depends on non-existent processor '{dep_id}'")
@@ -102,7 +102,7 @@ def validate_processors_config(processors: Processors) -> None:
 
     #     if proc_id in path:
     #         cycle = path[path.index(proc_id):] + [proc_id]
-    #         _LOGGER.error(
+    #         _logger.error(
     #             f"Circular dependency detected: {' -> '.join(cycle)}")
     #         raise ValueError(
     #             f"Circular dependency detected: {' -> '.join(cycle)}")
@@ -133,13 +133,13 @@ def load_processors(processors_config_path: str) -> Processors:
     try:
         with open(processors_config_path, "r") as processors_config_file:
             processors = yaml.safe_load(processors_config_file)
-            _LOGGER.debug("Processors configuration loaded successfully.")
+            _logger.debug("Processors configuration loaded successfully.")
             return cast(Processors, processors)
     except FileNotFoundError:
-        _LOGGER.warning(f"Processors configuration file not found in {processors_config_path}. No processors will be loaded.")
+        _logger.warning(f"Processors configuration file not found in {processors_config_path}. No processors will be loaded.")
         return []
     except yaml.YAMLError as e:
-        _LOGGER.error(f"Error parsing processors configuration: {e}")
+        _logger.error(f"Error parsing processors configuration: {e}")
         raise
 
 def get_processors(processors_config_path: str) -> Processors:
