@@ -169,8 +169,7 @@ class DownstreamConnection(ConnectionManager):
                     await asyncio.sleep(self.reconnect_seconds)
                     break
 
-                _logger.debug("Received event from %s: %s",
-                              self.name, event.type)
+                _logger.debug("Received event from %s: %s. Data: %s", self.name, event.type, event.data)
                 await self.event_callback(event)
 
     async def _disconnect(self) -> None:
