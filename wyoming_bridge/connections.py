@@ -99,18 +99,26 @@ class DownstreamConnection(ConnectionManager):
             except asyncio.CancelledError:
                 break
             except Exception:
-                _logger.exception(
-                    "Unexpected error in %s connection", self.name)
                 await self._disconnect()
                 if self._is_running:
                     await asyncio.sleep(self.reconnect_seconds)
+
 
     async def _connect_and_process(self) -> None:
         """Connect to downstream service and process events."""
         if self._client is None:
             self._client = AsyncClient.from_uri(self.uri)
-            await self._client.connect()
-            _logger.debug("Connected to %s service at %s", self.name, self.uri)
+            try:
+                await self._client.connect()
+            except Exception as e:
+                _logger.warning(
+                    "Could not connect to processor '%s' at %s. Will retry in %s seconds.",
+                    self.name, self.uri, self.reconnect_seconds
+                )
+                # Clean up client so next attempt will retry connection
+                self._client = None
+                raise
+            _logger.info("Connected to processor '%s' at %s", self.name, self.uri)
 
             # Reset queue
             self._send_queue = asyncio.Queue()
