@@ -22,3 +22,17 @@ curl -X POST http://localhost:8080/event -H "Content-Type: application/json" -d 
 ```
 
 3. Check the logger output in the logs.
+
+You should see logs similar to:
+
+```
+wyoming-bridge-demo       | DEBUG  conns   Event handler connected to source: 46007404319262
+wyoming-bridge-demo       | DEBUG  conns   Sending event down to target: audio-start
+wyoming-coordinator-demo  | 172.27.0.1 - - [06/Jun/2025 16:55:17] "POST /event HTTP/1.1" 201 -
+wyoming-target-demo       | INFO:target.handler:Returning event [audio-start]: {'rate': 16000, 'width': 2, 'channels': 1}
+wyoming-logger-demo       | INFO:logger.handler:Logging event [audio-start]: {'rate': 16000, 'width': 2, 'channels': 1}
+wyoming-bridge-demo       | DEBUG  conns   Sending event down to processor_logger: audio-start
+wyoming-bridge-demo       | DEBUG  conns   Received event from target: audio-start
+wyoming-bridge-demo       | DEBUG  conns   Sending event up to source: audio-start
+
+```

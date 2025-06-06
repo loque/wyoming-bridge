@@ -37,7 +37,7 @@ services:
       -m wyoming_bridge
       --uri tcp://0.0.0.0:11000
       --target-uri tcp://target:9001
-      --debug
+      --log-level-conns DEBUG
     volumes:
       - ./processors.yml:/app/processors.yml
     restart: unless-stopped
