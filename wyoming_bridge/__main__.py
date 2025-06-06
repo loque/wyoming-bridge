@@ -36,7 +36,7 @@ async def main() -> None:
     args = parse_arguments()
 
     configure_loggers(args)
-    _logger.info("Received stop signal. Shutting down...")
+    _logger.info("Starting Wyoming Bridge version %s", __version__)
     _logger.debug(args)
 
     # Validate and load the configured processors
