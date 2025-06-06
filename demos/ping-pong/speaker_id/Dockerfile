@@ -2,6 +2,5 @@ FROM python:3.11-slim
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-COPY . coordinator/
-EXPOSE 8080
-CMD ["python", "-m", "coordinator"]
+COPY . speaker_id/
+CMD ["python", "-m", "speaker_id"]

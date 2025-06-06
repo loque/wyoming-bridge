@@ -1,5 +1,5 @@
 - id: "logger"
-  uri: "tcp://logger:9000"
+  uri: "tcp://logger:9001"
   subscriptions:
     # Source events
     - event: "describe"
@@ -24,6 +24,29 @@
     - event: "detection"
       origin: "target"
       role: "observer"
+    - event: "not-detected"
+      origin: "target"
+      role: "observer"
+- id: "speaker_id"
+  uri: "tcp://speaker_id:9002"
+  subscriptions:
+    # Source events
+    - event: "audio-start"
+      origin: "source"
+      role: "observer"
+    - event: "audio-chunk"
+      origin: "source"
+      role: "observer"
+    - event: "audio-stop"
+      origin: "source"
+      role: "observer"
+    - event: "detect"
+      origin: "source"
+      role: "observer"
+    # Target events
+    - event: "detection"
+      origin: "target"
+      role: "enricher"
     - event: "not-detected"
       origin: "target"
       role: "observer"
