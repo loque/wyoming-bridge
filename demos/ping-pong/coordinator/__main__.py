@@ -1,9 +1,10 @@
 import logging
 import os
 import asyncio
+from urllib.parse import urlparse
+
 from flask import Flask
 from flask_cors import CORS
-from wyoming.client import AsyncClient
 
 from .handler import handler
 
@@ -15,22 +16,12 @@ async def create_app():
     bridge_uri = os.environ.get("BRIDGE_URI")
     if not bridge_uri:
         raise ValueError("BRIDGE_URI environment variable is not set")
-
-    bridge_client = AsyncClient.from_uri(bridge_uri)
-
-    # Wait for the bridge to be ready
-    # Retry for up to 30 seconds, every second
-    for _ in range(30):
-        try:
-            await bridge_client.connect()
-            break
-        except OSError:
-            app.logger.warning(f"Bridge not ready, retrying in 1s")
-            await asyncio.sleep(1)
-    else:
-        raise RuntimeError("Could not connect to bridge after 30 seconds")
     
-    app.config['BRIDGE_CLIENT'] = bridge_client
+    result = urlparse(bridge_uri)
+    host = result.hostname
+    port = result.port or 80
+
+    app.config['BRIDGE_URI'] = {'host': host, 'port': port}
 
     app.register_blueprint(handler)
     return app
