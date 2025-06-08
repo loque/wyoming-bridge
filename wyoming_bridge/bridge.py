@@ -515,7 +515,7 @@ class WyomingBridge(LifecycleManager):
     def _extract_base_correlation_id(self, composed_correlation_id: CorrelationId) -> CorrelationId:
         """Extract base correlation ID from enricher-specific correlation ID."""
         # composed_correlation_id format: {correlation ID}_{processor ID}
-        parts = composed_correlation_id.rsplit('_', 1)
+        parts = composed_correlation_id.split('_', 1)
         if len(parts) > 1:
             return CorrelationId(parts[0])
         else:
