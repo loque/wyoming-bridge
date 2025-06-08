@@ -1,20 +1,20 @@
 # Wyoming Bridge Ping Pong Demo
 
-This demo showcases the Wyoming Bridge's ability to forward events to observer
-and enricher processors. It demonstrates how an observer processor—here, a
-simple logger—can receive and log all Wyoming events passing through the bridge,
-without affecting the event flow. It also demonstrates how an enricher
-processor—here, a simple speaker ID processor—can enrich the event data before
-it is sent back to the source. This setup helps verify that both processors are
-correctly integrated and functioning as intended.
+This demo showcases the Wyoming Bridge's ability to forward events to both
+observer and enricher processors. It demonstrates how an observer processor—a
+simple logger in this case—can receive and log all Wyoming events passing
+through the bridge without affecting the event flow. It also shows how an
+enricher processor—a basic speaker ID processor—can enrich event data before it
+is sent back to the source. This setup helps verify that both types of
+processors are correctly integrated and working as expected.
 
 ## Services
 
-- **coordinator**: HTTP API to send Wyoming events to the bridge.
+- **coordinator**: HTTP API for sending Wyoming events to the bridge.
 - **wyoming-bridge**: The Wyoming bridge that connects the coordinator to the target.
-- **logger**: Simple observer processor that logs all events it receives.
-- **speaker_id**: Simple enricher processor that adds speaker ID information to the Detection event.
-- **target**: Simple Wyoming target emulator, will echo events back to the source.
+- **logger**: A simple observer processor that logs all events it receives.
+- **speaker_id**: An enricher processor that adds speaker ID information to Detection events.
+- **target**: A simple Wyoming target emulator that echoes events back to the source.
 
 ## Usage
 
@@ -30,7 +30,7 @@ docker compose up
 curl -X POST http://localhost:8080/event -H "Content-Type: application/json" -d '{"type": "audio-start", "data": {"rate": 16000, "width": 2, "channels": 1}}'
 ```
 
-You should see logs similar to:
+You should see the same event you sent being returned. The logs should look like this:
 
 ```bash
 wyoming-bridge-demo       | DEBUG  conns   Event handler connected to source: 46007404319262
@@ -50,7 +50,7 @@ wyoming-bridge-demo       | DEBUG  conns   Sending event up to source: audio-sta
 curl -X POST http://localhost:8080/event -H "Content-Type: application/json" -d '{"type": "detection", "data": {"name": "ok_nabu", "timestamp": "2025-06-06T16:55:17.123456Z"}}'
 ```
 
-You should see logs similar to:
+You should see the same event you sent being returned, but with a `speaker_id` added. The logs should look like this:
 
 ```bash
 wyoming-bridge-demo       | DEBUG  conns   Sending event down to target: detection
