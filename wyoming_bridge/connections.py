@@ -198,8 +198,7 @@ class UpstreamConnection(ConnectionManager):
         """Connect an event handler."""
         self.event_handler_id = event_handler_id
         self._writer = writer
-        _logger.debug("Event handler connected to %s: %s",
-                      self.name, event_handler_id)
+        _logger.debug("Event handler connected to %s: %s", self.name, event_handler_id)
 
     async def disconnect_event_handler(self) -> None:
         """Disconnect the current event handler."""
@@ -219,11 +218,9 @@ class UpstreamConnection(ConnectionManager):
             await self.disconnect_event_handler()
 
             if isinstance(err, ConnectionResetError):
-                _logger.warning(
-                    "Event handler disconnected unexpectedly from %s", self.name)
+                _logger.warning("Event handler disconnected unexpectedly from %s", self.name)
             else:
-                _logger.exception(
-                    "Unexpected error sending event up to %s", self.name)
+                _logger.exception("Unexpected error sending event up to %s", self.name)
 
     @property
     def is_connected(self) -> bool:
