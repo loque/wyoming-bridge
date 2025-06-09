@@ -8,7 +8,7 @@ from typing import Optional, Protocol, Awaitable
 from wyoming.client import AsyncClient
 from wyoming.event import Event, async_write_event
 
-_logger = logging.getLogger("conns")
+_LOGGER = logging.getLogger("conns")
 
 
 class EventCallback(Protocol):
@@ -40,14 +40,14 @@ class ConnectionManager(ABC):
         self._is_running = True
         self._task = asyncio.create_task(
             self._run_loop(), name=f"{self.name}_connection")
-        _logger.debug("Started %s connection manager", self.name)
+        _LOGGER.debug("Started %s connection manager", self.name)
 
     async def stop(self) -> None:
         """Stop the connection manager."""
         self._is_running = False
 
         if self._task is not None:
-            _logger.debug("Stopping %s connection manager", self.name)
+            _LOGGER.debug("Stopping %s connection manager", self.name)
             self._task.cancel()
             try:
                 await self._task
@@ -56,7 +56,7 @@ class ConnectionManager(ABC):
             self._task = None
 
         await self._cleanup()
-        _logger.debug("Stopped %s connection manager", self.name)
+        _LOGGER.debug("Stopped %s connection manager", self.name)
 
     @abstractmethod
     async def _run_loop(self) -> None:
@@ -111,14 +111,14 @@ class DownstreamConnection(ConnectionManager):
             try:
                 await self._client.connect()
             except Exception as e:
-                _logger.warning(
+                _LOGGER.warning(
                     "Could not connect to processor '%s' at %s. Will retry in %s seconds.",
                     self.name, self.uri, self.reconnect_seconds
                 )
                 # Clean up client so next attempt will retry connection
                 self._client = None
                 raise
-            _logger.info("Connected to processor '%s' at %s", self.name, self.uri)
+            _LOGGER.info("Connected to processor '%s' at %s", self.name, self.uri)
 
             # Reset queue
             self._send_queue = asyncio.Queue()
@@ -153,7 +153,7 @@ class DownstreamConnection(ConnectionManager):
                 event = send_task.result()
                 send_task = None
                 if event.type != "audio-chunk":
-                    _logger.debug("Sending event down to %s: %s",
+                    _LOGGER.debug("Sending event down to %s: %s",
                                   self.name, event.type)
                 await self._client.write_event(event)
 
@@ -164,12 +164,12 @@ class DownstreamConnection(ConnectionManager):
                 receive_task = None
 
                 if event is None:
-                    _logger.warning("%s service disconnected", self.name)
+                    _LOGGER.warning("%s service disconnected", self.name)
                     await self._disconnect()
                     await asyncio.sleep(self.reconnect_seconds)
                     break
 
-                _logger.debug("Received event from %s: %s. Data: %s", self.name, event.type, event.data)
+                _LOGGER.debug("Received event from %s: %s. Data: %s", self.name, event.type, event.data)
                 await self.event_callback(event)
 
     async def _disconnect(self) -> None:
@@ -198,13 +198,13 @@ class UpstreamConnection(ConnectionManager):
         """Connect an event handler."""
         self.event_handler_id = event_handler_id
         self._writer = writer
-        _logger.debug("Event handler connected to %s: %s", self.name, event_handler_id)
+        _LOGGER.debug("Event handler connected to %s: %s", self.name, event_handler_id)
 
     async def disconnect_event_handler(self) -> None:
         """Disconnect the current event handler."""
         self.event_handler_id = None
         self._writer = None
-        _logger.debug("Event handler disconnected from %s", self.name)
+        _LOGGER.debug("Event handler disconnected from %s", self.name)
 
     async def send_event(self, event: Event) -> None:
         """Send an event to the upstream."""
@@ -212,15 +212,15 @@ class UpstreamConnection(ConnectionManager):
             return
 
         try:
-            _logger.debug("Sending event up to %s: %s", self.name, event.type)
+            _LOGGER.debug("Sending event up to %s: %s", self.name, event.type)
             await async_write_event(event, self._writer)
         except Exception as err:
             await self.disconnect_event_handler()
 
             if isinstance(err, ConnectionResetError):
-                _logger.warning("Event handler disconnected unexpectedly from %s", self.name)
+                _LOGGER.warning("Event handler disconnected unexpectedly from %s", self.name)
             else:
-                _logger.exception("Unexpected error sending event up to %s", self.name)
+                _LOGGER.exception("Unexpected error sending event up to %s", self.name)
 
     @property
     def is_connected(self) -> bool:

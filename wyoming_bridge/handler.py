@@ -6,7 +6,7 @@ from wyoming.server import AsyncEventHandler
 
 from wyoming_bridge.bridge import WyomingBridge
 
-_logger = logging.getLogger("main")
+_LOGGER = logging.getLogger("main")
 
 class WyomingBridgeEventHandler(AsyncEventHandler):
     """Handle Wyoming Bridge events."""
@@ -24,7 +24,7 @@ class WyomingBridgeEventHandler(AsyncEventHandler):
         # taking over, (re)establish the upstream connection.
         if self.bridge.event_handler_id is None or \
            self.bridge.event_handler_id != self.event_handler_id:
-            _logger.debug(
+            _LOGGER.debug(
                 "New event handler taking over or first connection. Old ID: %s, New ID: %s",
                 self.bridge.event_handler_id,
                 self.event_handler_id

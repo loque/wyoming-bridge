@@ -7,7 +7,7 @@ from enum import Enum, auto
 from typing import Optional, Dict, Callable, Awaitable, Type, Any
 from dataclasses import dataclass
 
-_logger = logging.getLogger("state")
+_LOGGER = logging.getLogger("state")
 
 
 class BaseState(Enum):
@@ -70,24 +70,24 @@ class StateMachine:
         current_transitions = self._transitions.get(self._state, {})
         transition = current_transitions.get(new_state)
 
-        _logger.debug("Attempting transition in %s: %s -> %s",
+        _LOGGER.debug("Attempting transition in %s: %s -> %s",
                       self.name, self._state.name, new_state.name)
 
         if transition is None:
-            _logger.warning("Invalid transition from %s to %s in %s",
+            _LOGGER.warning("Invalid transition from %s to %s in %s",
                             self._state.name, new_state.name, self.name)
             return False
 
         # Check condition if present
         if transition.condition and not transition.condition():
-            _logger.debug("Transition condition failed for %s -> %s in %s",
+            _LOGGER.debug("Transition condition failed for %s -> %s in %s",
                           self._state.name, new_state.name, self.name)
             return False
 
         old_state = self._state
         self._state = new_state
 
-        _logger.debug("State transition in %s: %s -> %s",
+        _LOGGER.debug("State transition in %s: %s -> %s",
                       self.name, old_state.name, new_state.name)
 
         # Execute transition action if present
@@ -95,7 +95,7 @@ class StateMachine:
             try:
                 await transition.action()
             except Exception:
-                _logger.exception("Error executing transition action for %s -> %s in %s",
+                _LOGGER.exception("Error executing transition action for %s -> %s in %s",
                                   old_state.name, new_state.name, self.name)
                 # Revert state change on action failure
                 self._state = old_state
@@ -107,7 +107,7 @@ class StateMachine:
             try:
                 await handler()
             except Exception:
-                _logger.exception("Error executing state handler for %s in %s",
+                _LOGGER.exception("Error executing state handler for %s in %s",
                                   new_state.name, self.name)
 
         # Notify state change

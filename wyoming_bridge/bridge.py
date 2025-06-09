@@ -14,7 +14,7 @@ from wyoming_bridge.connections import DownstreamConnection, UpstreamConnection
 from wyoming_bridge.state_manager import LifecycleManager, BaseState
 from wyoming_bridge.processors import Subscription, ProcessorId, SubscriptionEvent
 
-_logger = logging.getLogger("bridge")
+_LOGGER = logging.getLogger("bridge")
 
 CorrelationId = NewType('CorrelationId', str)
 
@@ -46,7 +46,7 @@ class WyomingBridge(LifecycleManager):
     def __init__(self, settings: BridgeSettings) -> None:
         """Initializes the WyomingBridge with state management."""
         super().__init__("wyoming_bridge")
-        _logger.debug("Initializing WyomingBridge with settings: %s", settings)
+        _LOGGER.debug("Initializing WyomingBridge with settings: %s", settings)
         self.settings = settings
 
         # Connection managers
@@ -86,7 +86,7 @@ class WyomingBridge(LifecycleManager):
             except Exception:
                 if self.is_running:
                     # Automatically restart on unexpected errors
-                    _logger.exception("Unexpected error running bridge")
+                    _LOGGER.exception("Unexpected error running bridge")
                     await self.restart()
 
     # Lifecycle state handlers
@@ -97,7 +97,7 @@ class WyomingBridge(LifecycleManager):
 
     async def _on_started(self) -> None:
         """Handle STARTED state - bridge is operational."""
-        _logger.info("Wyoming bridge started successfully")
+        _LOGGER.info("Wyoming bridge started successfully")
 
     async def _on_stopping(self) -> None:
         """Handle STOPPING state."""
@@ -106,13 +106,13 @@ class WyomingBridge(LifecycleManager):
 
     async def _on_stopped(self) -> None:
         """Handle STOPPED state - bridge is fully stopped."""
-        _logger.info("Wyoming bridge stopped")
+        _LOGGER.info("Wyoming bridge stopped")
 
     async def _on_restarting(self) -> None:
         """Handle RESTARTING state."""
         await self._disconnect_downstream()
 
-        _logger.debug("Restarting bridge in %s second(s)", self.settings.restart_timeout)
+        _LOGGER.debug("Restarting bridge in %s second(s)", self.settings.restart_timeout)
 
         await asyncio.sleep(self.settings.restart_timeout)
         await self._state_machine.transition_to(BaseState.NOT_STARTED)
@@ -137,7 +137,7 @@ class WyomingBridge(LifecycleManager):
             # TODO: improve error handling
             raise ValueError("Target URI must be set in settings")
 
-        _logger.debug("Connecting to target service: %s", self.settings.target.uri)
+        _LOGGER.debug("Connecting to target service: %s", self.settings.target.uri)
         self._target_conn = DownstreamConnection(
             name="target",
             uri=self.settings.target.uri,
@@ -155,7 +155,7 @@ class WyomingBridge(LifecycleManager):
             processor_id = ProcessorId(processor["id"])
             processor_uri = processor["uri"]
 
-            _logger.debug("Connecting to processor %s at %s", processor_id, processor_uri)
+            _LOGGER.debug("Connecting to processor %s at %s", processor_id, processor_uri)
 
             processor_conn = DownstreamConnection(
                 name=f"processor_{processor_id}",
@@ -168,7 +168,7 @@ class WyomingBridge(LifecycleManager):
             self._processor_connections[processor_id] = processor_conn
             await processor_conn.start()
 
-        _logger.info("Connected to %d processors", len(self._processor_connections))
+        _LOGGER.info("Connected to %d processors", len(self._processor_connections))
 
     async def _disconnect_downstream(self) -> None:
         """Disconnects from running services."""
@@ -183,16 +183,16 @@ class WyomingBridge(LifecycleManager):
         # Stop source connection manager
         await self._source_conn.stop()
 
-        _logger.debug("Disconnected from services")
+        _LOGGER.debug("Disconnected from services")
 
     async def _disconnect_processors(self) -> None:
         """Disconnect from all processor connections."""
         for processor_id, connection in self._processor_connections.items():
-            _logger.debug("Disconnecting from processor %s", processor_id)
+            _LOGGER.debug("Disconnecting from processor %s", processor_id)
             await connection.stop()
 
         self._processor_connections.clear()
-        _logger.debug("Disconnected from all processors")
+        _LOGGER.debug("Disconnected from all processors")
 
     def _filter_subscriptions_by_origin(self, subscriptions: List[ProcessorSubscription], origin: str) -> List[ProcessorSubscription]:
         """Filter subscriptions by the specified origin."""
@@ -207,7 +207,7 @@ class WyomingBridge(LifecycleManager):
             raise RuntimeError("Target connection is not established")
 
         if not AudioChunk.is_type(event.type):
-            _logger.debug("Event received from source: %s", event.type)
+            _LOGGER.debug("Event received from source: %s", event.type)
 
         event_type = SubscriptionEvent(event.type)
         
@@ -218,7 +218,7 @@ class WyomingBridge(LifecycleManager):
         if source_enricher_subs:
             # Start enrichment process - send to enrichers and wait for all responses
             correlation_id = self._generate_correlation_id()
-            _logger.debug("Starting enrichment process for source event %s with %d enrichers (%s)", event.type, len(source_enricher_subs), correlation_id)
+            _LOGGER.debug("Starting enrichment process for source event %s with %d enrichers (%s)", event.type, len(source_enricher_subs), correlation_id)
             await self._notify_source_enrichers(event, correlation_id, source_enricher_subs)
         else:
             # No source enrichers - send directly to target and observers
@@ -238,7 +238,7 @@ class WyomingBridge(LifecycleManager):
         if target_enricher_subs:
             # Start enrichment process - send to enrichers and wait for all responses
             correlation_id = self._generate_correlation_id()
-            _logger.debug("Starting enrichment process for target event %s with %d enrichers (%s)", event.type, len(target_enricher_subs), correlation_id)
+            _LOGGER.debug("Starting enrichment process for target event %s with %d enrichers (%s)", event.type, len(target_enricher_subs), correlation_id)
             
             await self._notify_target_enrichers(event, correlation_id, target_enricher_subs)
         else:
@@ -247,19 +247,19 @@ class WyomingBridge(LifecycleManager):
 
     async def on_processor_event(self, event: Event) -> None:
         """Called when an event is received from a processor (enricher responses)."""
-        _logger.debug("Event received from processor: %s", event.type)
+        _LOGGER.debug("Event received from processor: %s", event.type)
         
         # Check if this is an enricher response by looking for correlation ID in event data
         # composed_correlation_id format: {correlation ID}_{processor ID}
         composed_correlation_id = self._extract_correlation_id(event)
         if not composed_correlation_id:
-            _logger.debug("Non-enricher processor event received: %s", event.type)
+            _LOGGER.debug("Non-enricher processor event received: %s", event.type)
             return
 
         # Extract base correlation ID from the composed correlation ID and check if that's pending
         correlation_id = self._extract_base_correlation_id(composed_correlation_id)
         if correlation_id not in self._enrichment_trackers:
-            _logger.debug("No pending enrichment found for correlation_id %s", composed_correlation_id)
+            _LOGGER.debug("No pending enrichment found for correlation_id %s", composed_correlation_id)
             return
         
         await self._handle_enricher_response(correlation_id, composed_correlation_id, event)
@@ -314,15 +314,15 @@ class WyomingBridge(LifecycleManager):
                 )
                 tasks.append(task)
             else:
-                _logger.warning("Processor connection not found for %s", proc_sub.processor_id)
+                _LOGGER.warning("Processor connection not found for %s", proc_sub.processor_id)
 
         # Wait for all observer notifications to complete (fire and forget)
         if tasks:
             try:
                 await asyncio.gather(*tasks, return_exceptions=True)
-                _logger.debug("Sent event to %d observer processors", len(tasks))
+                _LOGGER.debug("Sent event to %d observer processors", len(tasks))
             except Exception:
-                _logger.exception("Error sending event to observer processors")
+                _LOGGER.exception("Error sending event to observer processors")
 
     async def _notify_target_enrichers(self, event: Event, correlation_id: CorrelationId, enricher_subs: List[ProcessorSubscription]) -> None:
         """Send event to enricher processors and track the enrichment process."""
@@ -340,7 +340,7 @@ class WyomingBridge(LifecycleManager):
         for proc_sub in enricher_subs:
             processor_conn = self._processor_connections.get(proc_sub.processor_id)
             if not processor_conn:
-                _logger.warning("Processor connection not found for enricher %s", proc_sub.processor_id)
+                _LOGGER.warning("Processor connection not found for enricher %s", proc_sub.processor_id)
                 continue
 
             # Create composed correlation ID for the event to enrich
@@ -350,12 +350,12 @@ class WyomingBridge(LifecycleManager):
             # Track this enricher as pending
             tracker.pending_enrichers.add(composed_correlation_id)
             
-            _logger.debug("Sending event to enricher %s with correlation_id %s", proc_sub.processor_id, composed_correlation_id)
+            _LOGGER.debug("Sending event to enricher %s with correlation_id %s", proc_sub.processor_id, composed_correlation_id)
             
             try:
                 await processor_conn.send_event(event_to_enrich)
             except Exception:
-                _logger.exception("Failed to send event to enricher %s", proc_sub.processor_id)
+                _LOGGER.exception("Failed to send event to enricher %s", proc_sub.processor_id)
                 # Remove from pending since it failed
                 tracker.pending_enrichers.discard(composed_correlation_id)
                 
@@ -365,7 +365,7 @@ class WyomingBridge(LifecycleManager):
         
         # If no enrichers were successfully contacted, finalize immediately
         if not tracker.pending_enrichers:
-            _logger.debug("No enrichers available, finalizing event immediately")
+            _LOGGER.debug("No enrichers available, finalizing event immediately")
             await self._publish_target_event(event)
             del self._enrichment_trackers[correlation_id]
 
@@ -385,7 +385,7 @@ class WyomingBridge(LifecycleManager):
         for proc_sub in enricher_subs:
             processor_conn = self._processor_connections.get(proc_sub.processor_id)
             if not processor_conn:
-                _logger.warning("Processor connection not found for enricher %s", proc_sub.processor_id)
+                _LOGGER.warning("Processor connection not found for enricher %s", proc_sub.processor_id)
                 continue
 
             # Create composed correlation ID for the event to enrich
@@ -395,12 +395,12 @@ class WyomingBridge(LifecycleManager):
             # Track this enricher as pending
             tracker.pending_enrichers.add(composed_correlation_id)
             
-            _logger.debug("Sending event to enricher %s with correlation_id %s", proc_sub.processor_id, composed_correlation_id)
+            _LOGGER.debug("Sending event to enricher %s with correlation_id %s", proc_sub.processor_id, composed_correlation_id)
             
             try:
                 await processor_conn.send_event(event_to_enrich)
             except Exception:
-                _logger.exception("Failed to send event to enricher %s", proc_sub.processor_id)
+                _LOGGER.exception("Failed to send event to enricher %s", proc_sub.processor_id)
                 # Remove from pending since it failed
                 tracker.pending_enrichers.discard(composed_correlation_id)
                 
@@ -410,7 +410,7 @@ class WyomingBridge(LifecycleManager):
         
         # If no enrichers were successfully contacted, finalize immediately
         if not tracker.pending_enrichers:
-            _logger.debug("No enrichers available, finalizing event immediately")
+            _LOGGER.debug("No enrichers available, finalizing event immediately")
             await self._publish_source_event(event)
             del self._enrichment_trackers[correlation_id]
 
@@ -418,18 +418,18 @@ class WyomingBridge(LifecycleManager):
         """Handle response from enricher processor."""
         tracker = self._enrichment_trackers.get(correlation_id)
         if not tracker:
-            _logger.warning("Received enricher response for unknown base correlation_id: %s", correlation_id)
+            _LOGGER.warning("Received enricher response for unknown base correlation_id: %s", correlation_id)
             return
         
         if tracker.completed:
-            _logger.debug("Enricher response received after completion for correlation_id: %s", correlation_id)
+            _LOGGER.debug("Enricher response received after completion for correlation_id: %s", correlation_id)
             return
         
         # Store the enricher response
         tracker.enriched_responses[composed_correlation_id] = enricher_event
         tracker.pending_enrichers.discard(composed_correlation_id)
         
-        _logger.debug("Received enricher response. Pending: %d, Received: %d", len(tracker.pending_enrichers), len(tracker.enriched_responses))
+        _LOGGER.debug("Received enricher response. Pending: %d, Received: %d", len(tracker.pending_enrichers), len(tracker.enriched_responses))
         
         # Check if all enrichers have responded
         if not tracker.pending_enrichers:
@@ -437,7 +437,7 @@ class WyomingBridge(LifecycleManager):
 
     async def _complete_enrichment(self, correlation_id: CorrelationId, tracker: EnrichmentTracker) -> None:
         """Complete enrichment process by merging responses and finalizing event."""
-        _logger.debug("Completing enrichment for correlation_id: %s with %d responses", correlation_id, len(tracker.enriched_responses))
+        _LOGGER.debug("Completing enrichment for correlation_id: %s with %d responses", correlation_id, len(tracker.enriched_responses))
         
         # Merge enricher responses with original event
         enriched_event = self._merge_enricher_responses(tracker.original_event, tracker.enriched_responses)
@@ -465,7 +465,7 @@ class WyomingBridge(LifecycleManager):
         target_observer_subs = self._filter_subscriptions_by_origin(observer_subs, "target")
         
         if target_observer_subs:
-            _logger.debug("Sending event to %d target observer processors for event %s", len(target_observer_subs), event.type)
+            _LOGGER.debug("Sending event to %d target observer processors for event %s", len(target_observer_subs), event.type)
             await self._send_to_observers(event, target_observer_subs)
 
     async def _publish_source_event(self, event: Event) -> None:
@@ -483,7 +483,7 @@ class WyomingBridge(LifecycleManager):
         source_observer_subs = self._filter_subscriptions_by_origin(observer_subs, "source")
         
         if source_observer_subs:
-            _logger.debug("Sending event to %d source observer processors for event %s", len(source_observer_subs), event.type)
+            _LOGGER.debug("Sending event to %d source observer processors for event %s", len(source_observer_subs), event.type)
             await self._send_to_observers(event, source_observer_subs)
 
     def _add_correlation_id(self, event: Event, correlation_id: CorrelationId) -> Event:
@@ -553,6 +553,6 @@ class WyomingBridge(LifecycleManager):
         if original_event.payload:
             enriched_event.payload = original_event.payload
         
-        _logger.debug("Merged %d enricher responses into event %s", len(enriched_responses), original_event.type)
+        _LOGGER.debug("Merged %d enricher responses into event %s", len(enriched_responses), original_event.type)
         
         return enriched_event

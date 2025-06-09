@@ -16,7 +16,7 @@ from wyoming_bridge.settings import BridgeSettings, ServiceSettings
 from .handler import WyomingBridgeEventHandler
 from . import __version__
 
-_logger = logging.getLogger("main")
+_LOGGER = logging.getLogger("main")
 
 def parse_arguments():
     """Parse command-line arguments."""
@@ -36,8 +36,8 @@ async def main() -> None:
     args = parse_arguments()
 
     configure_loggers(args)
-    _logger.info("Starting Wyoming Bridge version %s", __version__)
-    _logger.debug(args)
+    _LOGGER.info("Starting Wyoming Bridge version %s", __version__)
+    _LOGGER.debug(args)
 
     # Validate and load the configured processors
     processors = get_processors(args.processors_path)
@@ -68,7 +68,7 @@ async def main() -> None:
 
 def handle_stop_signal(*args):
     """Handle shutdown signal."""
-    _logger.info("Received stop signal. Shutting down...")
+    _LOGGER.info("Received stop signal. Shutting down...")
     loop = asyncio.get_event_loop()
     loop.stop()
 
