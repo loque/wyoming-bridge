@@ -3,7 +3,7 @@ import logging
 from wyoming.event import Event
 from wyoming.server import AsyncEventHandler
 
-_logger = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(__name__)
 
 class EventHandler(AsyncEventHandler):
     """Handle Wyoming events."""
@@ -15,7 +15,7 @@ class EventHandler(AsyncEventHandler):
     async def handle_event(self, event: Event) -> bool:
         """Handle all Wyoming events."""
         
-        _logger.info("Returning event [%s]: %s", event.type, event.data)
+        _LOGGER.info("Returning event [%s]: %s", event.type, event.data)
 
         await self.write_event(event)
         return True

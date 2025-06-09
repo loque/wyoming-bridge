@@ -8,7 +8,7 @@ from wyoming.server import AsyncServer
 from target.handler import EventHandler
 
 logging.basicConfig(level=logging.INFO)
-_logger = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(__name__)
 
 def parse_arguments():
     """Parse command-line arguments."""
@@ -21,7 +21,7 @@ async def main() -> None:
     """Main function to run the Wyoming Target."""
     args = parse_arguments()
 
-    _logger.info("Starting Wyoming Target with URI: %s", args.uri)
+    _LOGGER.info("Starting Wyoming Target with URI: %s", args.uri)
 
     server = AsyncServer.from_uri(args.uri)
 
