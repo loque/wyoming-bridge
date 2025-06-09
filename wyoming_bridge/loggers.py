@@ -1,7 +1,7 @@
 
 import argparse
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional
 
 formatter = logging.Formatter("%(levelname)-6s %(name)-7s %(message)s")
@@ -32,6 +32,27 @@ class LoggerArgs:
                     raise ValueError(f"Invalid log level for {field_name}: {value}")
                 setattr(self, field_name, value_up)
 
+def configure_logger(name: str, level: Optional[str] = None):
+    """
+    Configure a logger with the specified name and level.
+    If no level is provided, it defaults to INFO.
+    """
+    logger = logging.getLogger(name)
+    if not logger.hasHandlers():
+        handler = logging.StreamHandler()
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+    else:
+        for handler in logger.handlers:
+            handler.setFormatter(formatter)
+    
+    if level:
+        logger.setLevel(getattr(logging, level.upper(), logging.INFO))
+    else:
+        logger.setLevel(logging.INFO)
+    
+    return logger
+
 def configure_loggers(args: argparse.Namespace):
     """
     Configure loggers for different groups based on command-line arguments.
@@ -59,22 +80,6 @@ def configure_loggers(args: argparse.Namespace):
         "state": values.log_level_state or values.log_level_default,
     }
 
-    loggers = {
-        "main": logging.getLogger("main"),
-        "bridge": logging.getLogger("bridge"),
-        "conns": logging.getLogger("conns"),
-        "state": logging.getLogger("state"),
-    }
-
     for name, level in group_levels.items():
-        if not level:
-            continue
-        loggers[name].setLevel(getattr(logging, level, logging.INFO))
-        if not loggers[name].handlers:
-            handler = logging.StreamHandler()
-            handler.setFormatter(formatter)
-            loggers[name].addHandler(handler)
-        else:
-            for handler in loggers[name].handlers:
-                handler.setFormatter(formatter)
+        configure_logger(name, level)
 
