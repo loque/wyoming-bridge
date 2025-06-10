@@ -1,0 +1,5 @@
+.env
+homeassistant/*
+!homeassistant/config/configuration.yaml
+ollama/data/*
+!.gitkeep
