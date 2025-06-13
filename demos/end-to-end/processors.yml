@@ -2,8 +2,8 @@
   uri: "tcp://speaker_id:9002"
   subscriptions:
     - event: "detection"
-      origin: "target"
-      role: "enricher"
+      stage: "post_target"
+      mode: "blocking"
     - event: "transcript"
-      origin: "target"
-      role: "enricher"
+      stage: "post_target"
+      mode: "blocking"
