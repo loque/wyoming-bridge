@@ -12,21 +12,10 @@ _LOGGER = logging.getLogger("main")
 ProcessorId = NewType('ProcessorId', str)
 SubscriptionEvent = NewType('SubscriptionEvent', str)
 
-class SubscriptionEnricher(TypedDict, total=False):
+class Subscription(TypedDict):
     event: SubscriptionEvent
-    origin: Literal["source", "target"]
-    role: Literal["enricher"]
-    depends_on: List[ProcessorId]
-
-
-class SubscriptionObserver(TypedDict):
-    event: SubscriptionEvent
-    origin: Literal["source", "target"]
-    role: Literal["observer"]
-    # 'depends_on' not allowed
-
-
-Subscription = SubscriptionObserver | SubscriptionEnricher
+    stage: Literal["pre_target", "post_target"]
+    mode: Literal["blocking", "non_blocking"]
 
 class Processor(TypedDict):
     id: ProcessorId
@@ -58,75 +47,18 @@ def validate_processors_config(processors: Processors) -> None:
             f"Processors configuration validation error: {err.message}")
         raise
 
+    # Set default values for mode if not present
+    for proc in processors:
+        for subscription in proc.get("subscriptions", []):
+            if "mode" not in subscription:
+                subscription["mode"] = "non_blocking"
+
     # Check for unique processor IDs
     ids = [proc.get("id") for proc in processors]
     if len(ids) != len(set(ids)):
         duplicates = set([x for x in ids if ids.count(x) > 1])
-        _LOGGER.error(
-            f"Duplicate processor IDs found: {', '.join(duplicates)}")
-        raise ValueError(
-            f"Duplicate processor IDs found: {', '.join(duplicates)}")
-
-    # Create a set of all processor IDs for quick lookups
-    processor_ids = set(ids)
-
-    # Check depends_on references
-    for proc in processors:
-        proc_id = proc.get("id")
-        for subscription in proc.get("subscriptions", []):
-            if "role" in subscription and subscription["role"] == "enricher" and "depends_on" in subscription:
-                depends_on_list = subscription["depends_on"]
-
-                # Check if processor references itself
-                if proc_id in depends_on_list:
-                    _LOGGER.error(
-                        f"Processor '{proc_id}' depends on itself, which is not allowed")
-                    raise ValueError(
-                        f"Processor '{proc_id}' cannot depend on itself")
-
-                # Check if all referenced IDs exist
-                for dep_id in depends_on_list:
-                    if dep_id not in processor_ids:
-                        _LOGGER.error(
-                            f"Processor '{proc_id}' depends on non-existent processor '{dep_id}'")
-                        raise ValueError(
-                            f"Processor '{proc_id}' depends on non-existent processor '{dep_id}'")
-
-    # For now, we won't check for circular dependencies because this
-    # implementation might result in false positives for complex valid
-    # configurations.
-    #
-    # # Check for circular dependencies
-    # def check_circular_dependencies(proc_id, visited=None, path=None): if
-    #     visited is None: visited = set() if path is None: path = []
-
-    #     if proc_id in path:
-    #         cycle = path[path.index(proc_id):] + [proc_id]
-    #         _LOGGER.error(
-    #             f"Circular dependency detected: {' -> '.join(cycle)}")
-    #         raise ValueError(
-    #             f"Circular dependency detected: {' -> '.join(cycle)}")
-
-    #     if proc_id in visited:
-    #         return
-
-    #     visited.add(proc_id)
-    #     path.append(proc_id)
-
-    #     # Find the processor by ID
-    #     processor = next(
-    #         (p for p in processors if p.get("id") == proc_id), None)
-    #     if processor:
-    #         for subscription in processor.get("subscriptions", []):
-    #             if "role" in subscription and subscription["role"] == "enricher" and "depends_on" in subscription:
-    #                 for dep_id in subscription["depends_on"]:
-    #                     check_circular_dependencies(
-    #                         dep_id, visited, path.copy())
-
-    # # Run circular dependency check for each processor
-    # for proc_id in processor_ids:
-    #     check_circular_dependencies(proc_id)
-
+        _LOGGER.error(f"Duplicate processor IDs found: {', '.join(duplicates)}")
+        raise ValueError(f"Duplicate processor IDs found: {', '.join(duplicates)}")
 
 def load_processors(processors_config_path: str) -> Processors:
     """Load processors configuration from a YAML file."""

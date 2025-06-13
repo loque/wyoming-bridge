@@ -28,36 +28,23 @@
         "type": "array",
         "items": {
           "type": "object",
-          "required": ["event", "origin", "role"],
+          "required": ["event", "stage"],
           "properties": {
             "event": {
               "type": "string",
               "minLength": 1
             },
-            "origin": {
+            "stage": {
               "type": "string",
-              "enum": ["source", "target"]
+              "enum": ["pre_target", "post_target"]
             },
-            "role": {
+            "mode": {
               "type": "string",
-              "enum": ["observer", "enricher"]
-            },
-            "depends_on": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "minLength": 1
-              },
-              "default": []
+              "enum": ["blocking", "non_blocking"],
+              "default": "non_blocking"
             }
           },
-          "additionalProperties": false,
-          "if": {
-            "properties": { "role": { "const": "observer" } }
-          },
-          "then": {
-            "not": { "required": ["depends_on"] }
-          }
+          "additionalProperties": false
         },
         "minItems": 1
       }
