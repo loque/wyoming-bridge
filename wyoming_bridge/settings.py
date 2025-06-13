@@ -22,3 +22,5 @@ class BridgeSettings:
     target: ServiceSettings
     processors: List[Processor] = field(default_factory=list)
     restart_timeout: float = 5.0
+    hass_access_token: str = ""
+    hass_url: str = ""

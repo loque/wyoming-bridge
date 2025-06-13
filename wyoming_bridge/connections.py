@@ -212,7 +212,7 @@ class UpstreamConnection(ConnectionManager):
             return
 
         try:
-            _LOGGER.debug("Sending event up to %s: %s", self.name, event.type)
+            _LOGGER.debug("Sending event up to %s: %s, %s", self.name, event.type, event.data)
             await async_write_event(event, self._writer)
         except Exception as err:
             await self.disconnect_event_handler()

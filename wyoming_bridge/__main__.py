@@ -23,6 +23,8 @@ def parse_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument("--uri", help="unix:// or tcp://", default="tcp://0.0.0.0:11000")
     parser.add_argument("--target-uri", help="URI of Wyoming target service")
+    parser.add_argument("--hass-access-token", help="Access token for Home Assistant")
+    parser.add_argument("--hass-url", help="Home Assistant URL", default="http://homeassistant:8123")
     parser.add_argument("--processors-path", help="Path to the processors configuration file", default="processors.yml")
     parser.add_argument("--log-level", dest="log_level_default", default=None, help="Default log level (e.g. INFO, DEBUG)")
     parser.add_argument("--log-level-main", dest="log_level_main", default=None, help="Log level for main group (main, processors, handler)")
@@ -47,6 +49,8 @@ async def main() -> None:
             uri=args.target_uri,
         ),
         processors=processors,
+        hass_access_token=args.hass_access_token or "",
+        hass_url=args.hass_url or "",
     )
 
     # Initialize and start WyomingBridge
