@@ -4,18 +4,27 @@ import os
 import yaml
 import json
 import jsonschema
+from enum import Enum
 
-from typing import List, TypedDict, Literal, cast, NewType
+from typing import List, TypedDict, cast, NewType
 
 _LOGGER = logging.getLogger("main")
 
 ProcessorId = NewType('ProcessorId', str)
 SubscriptionEvent = NewType('SubscriptionEvent', str)
 
+class SubscriptionStage(str, Enum):
+    PRE_TARGET = "pre_target"
+    POST_TARGET = "post_target"
+
+class SubscriptionMode(str, Enum):
+    BLOCKING = "blocking"
+    NON_BLOCKING = "non_blocking"
+
 class Subscription(TypedDict):
     event: SubscriptionEvent
-    stage: Literal["pre_target", "post_target"]
-    mode: Literal["blocking", "non_blocking"]
+    stage: SubscriptionStage
+    mode: SubscriptionMode
 
 class Processor(TypedDict):
     id: ProcessorId
@@ -51,7 +60,14 @@ def validate_processors_config(processors: Processors) -> None:
     for proc in processors:
         for subscription in proc.get("subscriptions", []):
             if "mode" not in subscription:
-                subscription["mode"] = "non_blocking"
+                subscription["mode"] = SubscriptionMode.NON_BLOCKING
+            # Ensure stage and mode are instances of the Enum
+            # YAML load might produce strings, so we convert them
+            if isinstance(subscription.get("stage"), str):
+                subscription["stage"] = SubscriptionStage(subscription["stage"])
+            if isinstance(subscription.get("mode"), str):
+                subscription["mode"] = SubscriptionMode(subscription["mode"])
+
 
     # Check for unique processor IDs
     ids = [proc.get("id") for proc in processors]
