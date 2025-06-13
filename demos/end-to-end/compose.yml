@@ -1,0 +1,173 @@
+services:
+  homeassistant:
+    container_name: ${PREFIX}-homeassistant
+    image: "ghcr.io/home-assistant/home-assistant:stable"
+    ports:
+      - "8123:8123"
+    volumes:
+      - ./homeassistant/config:/config
+      - /etc/localtime:/etc/localtime:ro
+      - /run/dbus:/run/dbus:ro
+    restart: unless-stopped
+    privileged: true
+    network_mode: host
+
+  microphone:
+    build: https://github.com/rhasspy/wyoming-mic-external.git
+    container_name: ${PREFIX}-microphone
+    ports:
+      - "10600:10600"
+    devices:
+      - /dev/snd:/dev/snd
+    group_add:
+      - audio
+    command:
+      - "--device"
+      - "${MICROPHONE_DEVICE:-sysdefault}"
+    restart: unless-stopped
+    networks:
+      - services_net
+
+  playback:
+    build: https://github.com/rhasspy/wyoming-snd-external.git
+    container_name: ${PREFIX}-playback
+    ports:
+      - "10601:10601"
+    devices:
+      - /dev/snd:/dev/snd
+    group_add:
+      - audio
+    command:
+      - "--device"
+      - "${PLAYBACK_DEVICE:-sysdefault}"
+    restart: unless-stopped
+    networks:
+      - services_net
+
+  wakeword:
+    image: homeassistant/amd64-addon-openwakeword:latest
+    container_name: ${PREFIX}-wakeword
+    entrypoint: python3
+    command: >
+      -m wyoming_openwakeword
+      --uri 'tcp://0.0.0.0:10400'
+    ports:
+      - 10400:10400
+    environment:
+      - TZ=America/Argentina/Buenos_Aires
+    restart: unless-stopped
+    networks:
+      - services_net
+
+  satellite:
+    container_name: ${PREFIX}-satellite
+    build: https://github.com/rhasspy/wyoming-satellite.git
+    ports:
+      - "10700:10700"
+    depends_on:
+      - microphone
+      - playback
+      - wakeword
+    command: >
+      --name satellite
+      --uri tcp://0.0.0.0:10700
+      --mic-uri tcp://microphone:10600
+      --snd-uri tcp://playback:10601
+      --wake-uri tcp://wakeword:10400
+      --wake-word-name ok_nabu
+      --debug
+    restart: unless-stopped
+    networks:
+      - services_net
+
+  speaker_id:
+    build: ../ping-pong/speaker_id
+    container_name: ${PREFIX}-speakerid
+    ports:
+      - "9002:9002"
+    entrypoint: python3
+    command: >
+      -m speaker_id
+      --uri tcp://0.0.0.0:9002
+    networks:
+      - services_net
+
+  whisper: # stt
+    container_name: ${PREFIX}-whisper
+    image: homeassistant/amd64-addon-whisper:latest
+    entrypoint: python3
+    command: >
+      -m wyoming_faster_whisper
+      --uri tcp://0.0.0.0:10300
+      --model tiny-int8
+      --beam-size 1
+      --data-dir /data
+    ports:
+      - 10300:10300
+    environment:
+      - TZ=America/Argentina/Buenos_Aires
+    restart: unless-stopped
+    networks:
+      - services_net
+
+  wyoming_bridge: # bridge between home assistant's pipeline and whisper
+    build: ../../wyoming_bridge
+    container_name: ${PREFIX}-bridge
+    depends_on:
+      - speaker_id
+      - whisper
+    ports:
+      - "11000:11000"
+    extra_hosts: # Add this section
+      - "host.docker.internal:host-gateway" # Add this line
+    entrypoint: python3
+    command: >
+      -m wyoming_bridge
+      --uri tcp://0.0.0.0:11000
+      --target-uri tcp://whisper:10300
+      --hass-access-token ${BRIDGE_ACCESS_TOKEN}
+      --hass-url http://host.docker.internal:8123
+      --log-level-bridge DEBUG
+      --log-level-conns DEBUG
+    volumes:
+      - ./processors.yml:/app/processors.yml
+    restart: unless-stopped
+    networks:
+      - services_net
+
+  piper: # tts
+    container_name: ${PREFIX}-piper
+    image: homeassistant/amd64-addon-piper:latest
+    ports:
+      - 10200:10200
+    entrypoint: python3
+    command: >
+      -m wyoming_piper
+      --piper '/usr/share/piper/piper'
+      --uri 'tcp://0.0.0.0:10200'
+      --length-scale "1"
+      --noise-scale "0.5"
+      --speaker "0"
+      --voice "en_US-lessac-medium"
+      --max-piper-procs "1"
+      --data-dir /data
+    restart: unless-stopped
+    networks:
+      - services_net
+
+  ollama:
+    container_name: ${PREFIX}-ollama
+    image: ollama/ollama:latest
+    volumes:
+      - ${OLLAMA_MODELS}:/root/.ollama/models
+    ports:
+      - 11434:11434
+    environment:
+      - TZ=America/Argentina/Buenos_Aires
+    restart: unless-stopped
+    networks:
+      - services_net
+
+networks:
+  services_net:
+    driver: bridge

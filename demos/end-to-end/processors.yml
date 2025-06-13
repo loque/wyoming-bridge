@@ -1,0 +1,9 @@
+- id: "speaker_id"
+  uri: "tcp://speaker_id:9002"
+  subscriptions:
+    - event: "detection"
+      origin: "target"
+      role: "enricher"
+    - event: "transcript"
+      origin: "target"
+      role: "enricher"
