@@ -27,11 +27,6 @@ class ConnectionManager(ABC):
         self._task: Optional[asyncio.Task] = None
         self._is_running = False
 
-    @property
-    def is_running(self) -> bool:
-        """Check if the connection is running."""
-        return self._is_running
-
     async def start(self) -> None:
         """Start the connection manager."""
         if self._is_running:
@@ -102,7 +97,6 @@ class DownstreamConnection(ConnectionManager):
                 await self._disconnect()
                 if self._is_running:
                     await asyncio.sleep(self.reconnect_seconds)
-
 
     async def _connect_and_process(self) -> None:
         """Connect to downstream service and process events."""
@@ -221,11 +215,6 @@ class UpstreamConnection(ConnectionManager):
                 _LOGGER.warning("Event handler disconnected unexpectedly from %s", self.name)
             else:
                 _LOGGER.exception("Unexpected error sending event up to %s", self.name)
-
-    @property
-    def is_connected(self) -> bool:
-        """Check if source is connected."""
-        return self._writer is not None
 
     async def _run_loop(self) -> None:
         """Source doesn't need a continuous loop - events come via handler."""
