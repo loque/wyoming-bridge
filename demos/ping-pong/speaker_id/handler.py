@@ -1,4 +1,5 @@
 import logging
+import random
 
 from wyoming.audio import AudioChunk
 from wyoming.event import Event
@@ -26,7 +27,7 @@ class EventHandler(AsyncEventHandler):
             _LOGGER.info("Logging event [%s]: %s", event.data, event.data)
 
             enriched_data = dict(event.data) if event.data else {}
-            enriched_data["speaker_id"] = "static-speaker-1"
+            enriched_data["speaker_id"] = random.choice(["adam", "alice", "bob", "charlie", "dave", "eve"])
 
             enriched_event = Event(type=event.type, data=enriched_data, payload=event.payload)
 
