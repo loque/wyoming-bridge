@@ -4,7 +4,7 @@ import logging
 from dataclasses import dataclass
 from typing import Optional
 
-formatter = logging.Formatter("%(levelname)-6s %(name)-7s %(message)s")
+formatter = logging.Formatter("%(levelname)-8s %(name)-7s %(message)s")
 
 VALID_LOG_LEVELS = {"CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG", "NOTSET"}
 
