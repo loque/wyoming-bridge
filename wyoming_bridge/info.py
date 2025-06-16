@@ -4,6 +4,7 @@ from wyoming.event import Event
 from wyoming.info import Artifact, Attribution, Info, Satellite
 
 from . import __version__
+from typing import Optional, Literal
 
 artifact = Artifact(
     # Prefix for the target service name
@@ -19,6 +20,10 @@ artifact = Artifact(
 
 cache: Optional[Info] = None
 
+# TODO: improve this
+ServiceType = Literal['asr', 'tts', 'handle', 'intent', 'wake', 'mic', 'snd']
+service_types = ['asr', 'tts', 'handle', 'intent', 'wake', 'mic', 'snd']
+
 def enrich_wyoming_info(event: Event) -> Event:
     """Enrich Wyoming info with target info."""
     global cache
@@ -30,9 +35,6 @@ def enrich_wyoming_info(event: Event) -> Event:
     
     # Create a new Info object to avoid mutating the original
     enriched_info = Info()
-    
-    # Service types to iterate over
-    service_types = ['asr', 'tts', 'handle', 'intent', 'wake', 'mic', 'snd']
     
     for service_type in service_types:
         services = getattr(target_info, service_type, [])
@@ -81,3 +83,15 @@ def reset_cache() -> None:
     """Reset the global cache."""
     global cache
     cache = None
+
+def read_service_type(event: Event) -> Optional[ServiceType]:
+    """Read the service type from the event."""
+    target_info = Info.from_event(event)
+
+    # Try to infer the service type from event data keys
+    for service_type in service_types:
+        if getattr(target_info, service_type, None) is not None:
+            return service_type  # type: ignore[return-value]
+
+    return None
+    

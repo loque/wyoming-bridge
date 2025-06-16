@@ -122,49 +122,59 @@ class DownstreamConnection(ConnectionManager):
         receive_task: Optional[asyncio.Task] = None
         pending = set()
 
-        while self._is_running and self._client is not None:
-            # Read from queue to send downstream
-            if send_task is None and self._send_queue is not None:
-                send_task = asyncio.create_task(
-                    self._send_queue.get(), name=f"{self.name}_send"
+        try:
+            while self._is_running and self._client is not None:
+                # Read from queue to send downstream
+                if send_task is None and self._send_queue is not None:
+                    send_task = asyncio.create_task(
+                        self._send_queue.get(), name=f"{self.name}_send"
+                    )
+                    pending.add(send_task)
+
+                # Read from downstream service
+                if receive_task is None:
+                    receive_task = asyncio.create_task(
+                        self._client.read_event(), name=f"{self.name}_receive"
+                    )
+                    pending.add(receive_task)
+
+                done, pending = await asyncio.wait(
+                    pending, return_when=asyncio.FIRST_COMPLETED
                 )
-                pending.add(send_task)
 
-            # Read from downstream service
-            if receive_task is None:
-                receive_task = asyncio.create_task(
-                    self._client.read_event(), name=f"{self.name}_receive"
-                )
-                pending.add(receive_task)
+                # Handle send event
+                if send_task in done:
+                    assert send_task is not None
+                    event = send_task.result()
+                    send_task = None
+                    if event.type != "audio-chunk":
+                        _LOGGER.debug("Sending event down to %s: %s",
+                                      self.name, event.type)
+                    await self._client.write_event(event)
 
-            done, pending = await asyncio.wait(
-                pending, return_when=asyncio.FIRST_COMPLETED
-            )
+                # Handle receive event
+                if receive_task in done:
+                    assert receive_task is not None
+                    event = receive_task.result()
+                    receive_task = None
 
-            # Handle send event
-            if send_task in done:
-                assert send_task is not None
-                event = send_task.result()
-                send_task = None
-                if event.type != "audio-chunk":
-                    _LOGGER.debug("Sending event down to %s: %s",
-                                  self.name, event.type)
-                await self._client.write_event(event)
+                    if event is None:
+                        _LOGGER.warning("Service '%s' disconnected", self.name)
+                        # Force reconnection by raising exception instead of just breaking
+                        raise ConnectionError(f"Service '{self.name}' disconnected")
 
-            # Handle receive event
-            if receive_task in done:
-                assert receive_task is not None
-                event = receive_task.result()
-                receive_task = None
+                    _LOGGER.debug("Received event from %s: %s. Data: %s", self.name, event.type, event.data)
+                    await self.event_callback(event)
 
-                if event is None:
-                    _LOGGER.warning("%s service disconnected", self.name)
-                    await self._disconnect()
-                    await asyncio.sleep(self.reconnect_seconds)
-                    break
-
-                _LOGGER.debug("Received event from %s: %s. Data: %s", self.name, event.type, event.data)
-                await self.event_callback(event)
+        finally:
+            # Clean up pending tasks
+            for task in pending:
+                if not task.done():
+                    task.cancel()
+                    try:
+                        await task
+                    except asyncio.CancelledError:
+                        pass
 
     async def _disconnect(self) -> None:
         """Disconnect from downstream service."""

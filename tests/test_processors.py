@@ -195,12 +195,12 @@ async def test_enricher_flow_for_target_events():
         mock_observer1_conn = AsyncMock()
         mock_source_conn = AsyncMock()
         
-        bridge._processor_connections = {
+        bridge._processor_conns = {
             ProcessorId("enricher1"): mock_enricher1_conn,
             ProcessorId("enricher2"): mock_enricher2_conn,
             ProcessorId("observer1"): mock_observer1_conn,
         }
-        bridge._source_conn = mock_source_conn
+        bridge._source = mock_source_conn
         
         await bridge.start()
         
@@ -294,10 +294,10 @@ async def test_target_event_without_enrichers():
         mock_observer1_conn = AsyncMock()
         mock_source_conn = AsyncMock()
         
-        bridge._processor_connections = {
+        bridge._processor_conns = {
             ProcessorId("observer1"): mock_observer1_conn,
         }
-        bridge._source_conn = mock_source_conn
+        bridge._source = mock_source_conn
         
         await bridge.start()
         

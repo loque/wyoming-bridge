@@ -1,0 +1,103 @@
+from abc import ABC, abstractmethod
+import asyncio
+import logging
+
+from wyoming.client import AsyncClient
+from wyoming.event import Event
+
+from .manager import EventCallback
+
+_LOGGER = logging.getLogger("conns")
+
+class WyomingTarget(ABC):
+
+    def __init__(self, target_type: str, uri: str, event_callback: EventCallback):
+        self._type = target_type
+        self._uri = uri
+        self._event_callback = event_callback
+
+        self._client = None
+        self._is_connected = False
+        self._write_lock = asyncio.Lock()
+
+    async def _connect(self):
+        try:
+            _LOGGER.debug("Connecting to target '%s': %s", self._type, self._uri)
+            self._client = AsyncClient.from_uri(self._uri)
+            await self._client.connect()
+            self._is_connected = True
+            
+            # Start background task to listen to target events
+            asyncio.create_task(self._listen_to_events())
+
+            _LOGGER.info("Connected to target '%s'", self._type)
+
+        except Exception:
+            _LOGGER.exception("Failed to connect to target '%s'", self._type)
+            await self._disconnect()
+            raise
+        
+    async def _disconnect(self) -> None:
+        self._is_connected = False
+
+        if self._client:
+            try:
+                await self._client.disconnect()
+                _LOGGER.debug("Disconnected from target '%s'", self._type)
+            except Exception:
+                _LOGGER.exception("Error disconnecting from target '%s'", self._type)
+            finally:
+                self._client = None
+
+    async def _listen_to_events(self) -> None:
+        """Background task to continuously listen to events from target."""
+        if not self._client:
+            return
+            
+        try:
+            while self._is_connected and self._client:
+                try:
+                    event = await self._client.read_event()
+                    if event is None:
+                        _LOGGER.debug("Target connection closed")
+                        raise
+                    
+                    # Handle target event
+                    await self._on_target_event(event)
+                    
+                except Exception:
+                    _LOGGER.exception("Error reading from target '%s'", self._type)
+                    raise
+                    
+        except Exception:
+            _LOGGER.exception("Target reader task failed")
+            await self._disconnect()
+    
+    async def write_event(self, event: Event) -> None:
+        if not self._is_connected or not self._client:
+            _LOGGER.debug("Target not connected")
+            await self._connect()
+            if not self._client:
+                _LOGGER.error("Could not connect to target, cannot send event")
+                return
+
+        # Use lock to ensure thread-safe writing to target
+        async with self._write_lock:
+            try:
+                _LOGGER.debug("Sending event to target '%s': %s", self._type, event.type)
+                await self._client.write_event(event)
+            except Exception:
+                _LOGGER.exception("Failed to send event to target '%s'", self._type)
+                # Disconnected to trigger reconnection
+                await self._disconnect()
+                return
+
+    @abstractmethod
+    async def _on_target_event(self, event: Event) -> None:
+        """Handle events received from the target."""
+        pass
+    
+    @staticmethod
+    @abstractmethod
+    def is_type(service_type: str | None) -> bool:
+        pass

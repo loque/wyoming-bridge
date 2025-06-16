@@ -6,14 +6,17 @@ from dataclasses import dataclass
 import requests
 
 from wyoming.audio import AudioChunk
+from wyoming.client import AsyncClient
 from wyoming.event import Event
-from wyoming.info import Info
+from wyoming.info import Describe, Info
 
-from wyoming_bridge.info import enrich_wyoming_info
-from wyoming_bridge.settings import BridgeSettings
-from wyoming_bridge.connections import DownstreamConnection, UpstreamConnection
-from wyoming_bridge.state_manager import LifecycleManager, BaseState
-from wyoming_bridge.processors import Subscription, ProcessorId, SubscriptionEvent, SubscriptionMode, SubscriptionStage
+from .connections.stt import WyomingSttTarget
+from .connections.target import WyomingTarget
+from .connections.manager import DownstreamConnection, UpstreamConnection
+from .info import enrich_wyoming_info, read_service_type
+from .settings import BridgeSettings
+from .state_manager import LifecycleManager, BaseState
+from .processors import Subscription, ProcessorId, SubscriptionEvent, SubscriptionMode, SubscriptionStage
 
 _LOGGER = logging.getLogger("bridge")
 
@@ -69,7 +72,6 @@ class ProcessorTracker:
         self.stage = stage
         self.pending_processors: Set[ProcessorId] = set()
         self.processor_extensions: List[ProcessorExtEntry] = []
-        self.completed = False
     
     def track_processor(self, processor_id: ProcessorId) -> None:
         """Add a processor to the pending list."""
@@ -139,20 +141,38 @@ class WyomingBridge(LifecycleManager):
         self.settings = settings
 
         # Connection managers
-        self._source_conn = UpstreamConnection("source")
-        self._target_conn: Optional[DownstreamConnection] = None
+        self._source = UpstreamConnection("source")
+        self._target: Optional[WyomingTarget] = None
+        self._processor_conns: Dict[ProcessorId, DownstreamConnection] = {}
 
-        self._processor_connections: Dict[ProcessorId, DownstreamConnection] = {}
         self._subscriptions: Dict[Tuple[SubscriptionEvent, SubscriptionStage, SubscriptionMode], List[ProcessorSubscription]] = {}
-
         self._processor_trackers: Dict[TrackingId, ProcessorTracker] = {}
 
         self._build_subscriptions_index()
-
+    
     @property
     def event_handler_id(self) -> Optional[str]:
         """Get current event handler ID."""
-        return self._source_conn.event_handler_id
+        return self._source.event_handler_id
+
+    def _build_subscriptions_index(self) -> None:
+        """Build indexed lookups for processor subscriptions."""
+        self._subscriptions.clear()
+
+        for processor in self.settings.processors:
+            for sub_config in processor["subscriptions"]:
+
+                proc_sub = ProcessorSubscription(
+                    processor_id=processor["id"],
+                    subscription=sub_config
+                )
+
+                # Key: (SubscriptionEvent, SubscriptionStage, SubscriptionMode)
+                key = (sub_config["event"], sub_config["stage"], sub_config["mode"])
+
+                if key not in self._subscriptions:
+                    self._subscriptions[key] = []
+                self._subscriptions[key].append(proc_sub)
 
     async def run(self) -> None:
         """Run main bridge loop using state machine."""
@@ -177,7 +197,13 @@ class WyomingBridge(LifecycleManager):
     # Lifecycle state handlers
     async def _on_starting(self) -> None:
         """Handle STARTING state."""
-        await self._connect_services()
+
+        # Start source connection
+        await self._source.start()
+
+        # Connect to all configured processors
+        await self._connect_processors()
+
         await self._state_machine.transition_to(BaseState.STARTED)
 
     async def _on_started(self) -> None:
@@ -186,7 +212,7 @@ class WyomingBridge(LifecycleManager):
 
     async def _on_stopping(self) -> None:
         """Handle STOPPING state."""
-        await self._disconnect_downstream()
+        await self._disconnect_services()
         await self._state_machine.transition_to(BaseState.STOPPED)
 
     async def _on_stopped(self) -> None:
@@ -195,7 +221,7 @@ class WyomingBridge(LifecycleManager):
 
     async def _on_restarting(self) -> None:
         """Handle RESTARTING state."""
-        await self._disconnect_downstream()
+        await self._disconnect_services()
 
         _LOGGER.debug("Restarting bridge in %s second(s)", self.settings.restart_timeout)
 
@@ -205,30 +231,11 @@ class WyomingBridge(LifecycleManager):
     # Connection management
     async def connect_upstream(self, event_handler_id: str, writer: asyncio.StreamWriter) -> None:
         """Set event writer."""
-        await self._source_conn.connect_event_handler(event_handler_id, writer)
+        await self._source.connect_event_handler(event_handler_id, writer)
 
     async def disconnect_upstream(self) -> None:
         """Remove writer."""
-        await self._source_conn.disconnect_event_handler()
-
-    async def _connect_services(self) -> None:
-        """Connects to configured services."""
-
-        # Start source connection
-        await self._source_conn.start()
-
-        # Start target connection
-        _LOGGER.debug("Connecting to target service: %s", self.settings.target.uri)
-        self._target_conn = DownstreamConnection(
-            name="target",
-            uri=self.settings.target.uri,
-            reconnect_seconds=self.settings.target.reconnect_seconds,
-            event_callback=self.on_target_event
-        )
-        await self._target_conn.start()
-
-        # Connect to all configured processors
-        await self._connect_processors()
+        await self._source.disconnect_event_handler()
 
     async def _connect_processors(self) -> None:
         """Establish connections to all configured processors."""
@@ -246,65 +253,42 @@ class WyomingBridge(LifecycleManager):
                 event_callback=self.on_processor_event
             )
 
-            self._processor_connections[processor_id] = processor_conn
+            self._processor_conns[processor_id] = processor_conn
             await processor_conn.start()
 
-        _LOGGER.info("Connected to %d processors", len(self._processor_connections))
+        _LOGGER.info("Connected to %d processors", len(self._processor_conns))
 
-    async def _disconnect_downstream(self) -> None:
+    async def _disconnect_services(self) -> None:
         """Disconnects from running services."""
         # Stop processor connections
         await self._disconnect_processors()
 
-        # Stop target connection
-        if self._target_conn is not None:
-            await self._target_conn.stop()
-            self._target_conn = None
-
         # Stop source connection manager
-        await self._source_conn.stop()
+        await self._source.stop()
 
         _LOGGER.debug("Disconnected from services")
 
     async def _disconnect_processors(self) -> None:
         """Disconnect from all processor connections."""
-        for processor_id, connection in self._processor_connections.items():
+        for processor_id, connection in self._processor_conns.items():
             _LOGGER.debug("Disconnecting from processor %s", processor_id)
             await connection.stop()
 
-        self._processor_connections.clear()
+        self._processor_conns.clear()
         _LOGGER.debug("Disconnected from all processors")
-    
-    def _build_subscriptions_index(self) -> None:
-        """Build indexed lookups for processor subscriptions."""
-        self._subscriptions.clear()
-
-        for processor in self.settings.processors:
-            for sub_config in processor["subscriptions"]:
-
-                proc_sub = ProcessorSubscription(
-                    processor_id=processor["id"],
-                    subscription=sub_config
-                )
-
-                # Key: (SubscriptionEvent, SubscriptionStage, SubscriptionMode)
-                key = (sub_config["event"], sub_config["stage"], sub_config["mode"])
-
-                if key not in self._subscriptions:
-                    self._subscriptions[key] = []
-                self._subscriptions[key].append(proc_sub)
 
     # Event handling
     async def on_source_event(self, event: Event) -> None:
         """Called when an event is received from source."""
 
+        # Explicit handler for Describe/Info flow
+        if Describe.is_type(event.type):
+            await self._handle_describe_flow(event)
+            return # Describe events are not propagated to processors
+                
         if not AudioChunk.is_type(event.type):
             # Log all events except AudioChunk to avoid excessive logging
             _LOGGER.debug("Event received from source: %s", event.type)
-
-        if self._target_conn is None:
-            # TODO: improve error handling
-            raise RuntimeError("Target connection is not established")
 
         # Check for pre_target blocking subscribers
         key = (SubscriptionEvent(event.type), SubscriptionStage.PRE_TARGET, SubscriptionMode.BLOCKING)
@@ -312,37 +296,63 @@ class WyomingBridge(LifecycleManager):
 
         if subs:
             _LOGGER.debug("Notify all pre-target blocking subscribers (%d) for event %s", len(subs), event.type)
-            await self._notify_pre_target_blocking_subs(event, subs)
+            await self._start_blocking_flow(SubscriptionStage.PRE_TARGET, event, subs)
         else:
             # No blocking subscriptions - send directly to target and non-blocking subscribers
             await self._send_to_target(event)
+    
+    async def _handle_describe_flow(self, event: Event) -> None:
+        try:
+            async with AsyncClient.from_uri(self.settings.target.uri) as client:
+                await client.connect()
+                _LOGGER.debug("Sending '%s' event to target.", event.type)
+                await client.write_event(event)
+
+                while True:
+                    received_event = await client.read_event()
+                    if received_event is None:
+                        _LOGGER.debug("Connection lost with target")
+                        break
+                    
+                    _LOGGER.debug("Received '%s' event from target.", received_event.type)
+
+                    if Info.is_type(received_event.type):
+                        received_event = enrich_wyoming_info(received_event)
+                        target_type = read_service_type(received_event)
+                        _LOGGER.debug("Target service type: %s", target_type)
+                        if WyomingSttTarget.is_type(target_type):
+                            self._target = WyomingSttTarget(
+                                uri=self.settings.target.uri,
+                                event_callback=self.on_target_event
+                            )
+                        await self._send_to_source(received_event)
+                        break
+
+        except Exception as error:
+            _LOGGER.debug("Error processing Describe: %s", error)
 
     async def on_target_event(self, event: Event) -> None:
         """Called when an event is received from the target service."""
-
-        if Info.is_type(event.type):
-            event = enrich_wyoming_info(event)
-
 
         key = (SubscriptionEvent(event.type), SubscriptionStage.POST_TARGET, SubscriptionMode.BLOCKING)
         subs = self._subscriptions.get(key, [])
 
         if subs:
             _LOGGER.debug("Notify all post_target blocking subscribers (%d) for event %s", len(subs), event.type)
-            await self._notify_post_target_blocking_subs(event, subs)
+            await self._start_blocking_flow(SubscriptionStage.POST_TARGET, event, subs)
         else:
             # No blocking subscriptions - send directly to source and non-blocking subscribers
             await self._send_to_source(event)
 
     async def on_processor_event(self, event: Event) -> None:
-        """Called when an event is received from a processor."""
+        """Called when an event is received from a processor, this event must be part of a blocking flow."""
         _LOGGER.debug("Event received from processor: %s", event.type)
 
         proc_response = ProcessorResponse.from_event(event)
 
         tracking_id = proc_response.tracking_id
         if not tracking_id:
-            _LOGGER.debug("Missing tracking_id in processor response, ignoring event: %s", event.type)
+            _LOGGER.warning("Missing tracking_id in processor response, ignoring event: %s", event.type)
             return
 
         processor_id = proc_response.processor_id
@@ -350,16 +360,12 @@ class WyomingBridge(LifecycleManager):
             _LOGGER.warning("Missing processor_id in processor response, tracking_id: %s", tracking_id)
             return
 
-        if tracking_id not in self._processor_trackers:
-            _LOGGER.debug("Processor '%s' is not pending, tracking_id %s", processor_id, tracking_id)
-            return
-        
         tracker = self._processor_trackers.get(tracking_id)
         if not tracker:
             _LOGGER.warning("Processor '%s' not being tracked, tracking_id: %s", processor_id, tracking_id)
             return
         
-        if tracker.completed:
+        if tracker.is_complete():
             _LOGGER.debug("Processor '%s' responded after completion, tracking_id: %s", processor_id, tracking_id)
             return
         
@@ -369,45 +375,17 @@ class WyomingBridge(LifecycleManager):
 
         # Check if all processors have responded
         if tracker.is_complete():
-            await self._complete_enrichment(tracking_id, tracker)
+            await self._end_blocking_flow(tracking_id, tracker)
 
-    async def _notify_non_blocking_subs(self, event: Event, subs: List[ProcessorSubscription]) -> None:
-        """Send event to observer processors in parallel."""
-        if not subs:
-            return
-
-        # Create tasks to send event to all observer processors
-        tasks = []
-        for proc_sub in subs:
-            processor_conn = self._processor_connections.get(proc_sub.processor_id)
-            if processor_conn:
-                task = asyncio.create_task(
-                    processor_conn.send_event(event),
-                    name=f"observer_{proc_sub.processor_id}_{event.type}"
-                )
-                tasks.append(task)
-            else:
-                _LOGGER.warning("Processor connection not found for %s", proc_sub.processor_id)
-
-        # Wait for all observer notifications to complete (fire and forget)
-        if tasks:
-            try:
-                await asyncio.gather(*tasks, return_exceptions=True)
-                _LOGGER.debug("Sent event to %d observer processors", len(tasks))
-            except Exception:
-                _LOGGER.exception("Error sending event to observer processors")
-
-    async def _notify_post_target_blocking_subs(self, event: Event, subs: List[ProcessorSubscription]) -> None:
-        """Send event to post-target blocking subscribers and track the progress."""
-
-        tracker = ProcessorTracker(event, SubscriptionStage.POST_TARGET)
+    async def _start_blocking_flow(self, stage: SubscriptionStage, event: Event, subs: List[ProcessorSubscription]) -> None:
+        tracker = ProcessorTracker(event, stage)
         tracking_id = tracker.tracking_id
         
         # Send to all blocking subscribers
         for sub in subs:
-            proc_conn = self._processor_connections.get(sub.processor_id)
+            proc_conn = self._processor_conns.get(sub.processor_id)
             if not proc_conn:
-                _LOGGER.warning("Processor connection not found for '%s'", sub.processor_id)
+                _LOGGER.warning("Processor connection not found by id '%s'", sub.processor_id)
                 continue
 
             trackable_event = self._attach_tracking_info(event, tracking_id, sub.processor_id)
@@ -430,52 +408,11 @@ class WyomingBridge(LifecycleManager):
         
         if tracker.is_complete():
             _LOGGER.debug("No blocking subscribers available, finalizing event immediately")
-            await self._send_to_source(event)
-            # Discard the tracker since no processors are pending
-            del self._processor_trackers[tracking_id]
+            await self._end_blocking_flow(tracking_id, tracker)
 
-    async def _notify_pre_target_blocking_subs(self, event: Event, subs: List[ProcessorSubscription]) -> None:
-        """Send event to pre-target blocking subscribers and track the progress."""
-
-        tracker = ProcessorTracker(event, SubscriptionStage.PRE_TARGET)
-        tracking_id = tracker.tracking_id
-        
-        for proc_sub in subs:
-            processor_conn = self._processor_connections.get(proc_sub.processor_id)
-            if not processor_conn:
-                _LOGGER.warning("Processor connection not found for '%s'", proc_sub.processor_id)
-                continue
-
-            trackable_event = self._attach_tracking_info(event, tracking_id, proc_sub.processor_id)
-            
-            # Register this subscription as pending
-            tracker.track_processor(proc_sub.processor_id)
-
-            _LOGGER.debug("Sending event to blocking subscription '%s' with tracking_id '%s'", proc_sub.processor_id, tracking_id)
-
-            try:
-                await processor_conn.send_event(trackable_event)
-            except Exception:
-                _LOGGER.exception("Failed to send event to blocking subscription '%s'", proc_sub.processor_id)
-                # Remove from pending since it failed
-                tracker.remove_failed_processor(proc_sub.processor_id)
-                
-        
-        # Store the tracker
-        self._processor_trackers[tracking_id] = tracker
-
-        if tracker.is_complete():
-            _LOGGER.debug("No blocking subscribers available, finalizing event immediately")
-            await self._send_to_target(event)
-            # Discard the tracker since no processors are pending
-            del self._processor_trackers[tracking_id]
-
-    async def _complete_enrichment(self, tracking_id: TrackingId, tracker: ProcessorTracker) -> None:
-        """Complete enrichment process by merging responses and finalizing event."""
-        _LOGGER.debug("Completing enrichment for tracking_id: %s with %d response(s)", tracking_id, len(tracker.processor_extensions))
-        
-        # Mark as completed
-        tracker.completed = True
+    async def _end_blocking_flow(self, tracking_id: TrackingId, tracker: ProcessorTracker) -> None:
+        """Complete processor flow by merging responses and finalizing event."""
+        _LOGGER.debug("Completing processor flow for tracking_id: %s with %d response(s)", tracking_id, len(tracker.processor_extensions))
 
         # Finalize the enriched event based on stage
         if tracker.stage == SubscriptionStage.PRE_TARGET:
@@ -490,36 +427,51 @@ class WyomingBridge(LifecycleManager):
         # Clean up tracker
         del self._processor_trackers[tracking_id]
 
+    async def _handle_non_blocking_flow(self, stage: SubscriptionStage, event: Event) -> None:
+        # Search for non-blocking post-target subscribers
+        key = (SubscriptionEvent(event.type), stage, SubscriptionMode.NON_BLOCKING)
+        subs = self._subscriptions.get(key, [])
+
+        if subs:
+            _LOGGER.debug("Notifying %d %s non-blocking processors for event %s", len(subs), stage, event.type)
+            # Create tasks to send event to all observer processors
+            tasks = []
+            for proc_sub in subs:
+                processor_conn = self._processor_conns.get(proc_sub.processor_id)
+                if processor_conn:
+                    task = asyncio.create_task(
+                        processor_conn.send_event(event),
+                        name=f"observer_{proc_sub.processor_id}_{event.type}"
+                    )
+                    tasks.append(task)
+                else:
+                    _LOGGER.warning("Processor connection not found for %s", proc_sub.processor_id)
+
+            # Wait for all observer notifications to complete (fire and forget)
+            if tasks:
+                try:
+                    await asyncio.gather(*tasks, return_exceptions=True)
+                    _LOGGER.debug("Sent event to %d observer processors", len(tasks))
+                except Exception:
+                    _LOGGER.exception("Error sending event to observer processors")
+    
+    async def _send_to_target(self, sent_event: Event) -> None:
+        """Send source event to target and pre-target non-blocking subscribers."""
+
+        if not self._target:
+            _LOGGER.debug("Target connection not found, cannot send event: %s", sent_event.type)
+            return
+        
+        await self._target.write_event(sent_event)
+        await self._handle_non_blocking_flow(SubscriptionStage.PRE_TARGET, sent_event)
+    
     async def _send_to_source(self, event: Event) -> None:
         """Send final event to source and post-target non-blocking subscribers."""
-        # Forward event to source
-        await self._source_conn.send_event(event)
         
-        # Search for non-blocking post-target subscribers
-        key = (SubscriptionEvent(event.type), SubscriptionStage.POST_TARGET, SubscriptionMode.NON_BLOCKING)
-        subs = self._subscriptions.get(key, [])
-
-        if subs:
-            _LOGGER.debug("Sending event to %d target observer processors for event %s", len(subs), event.type)
-            await self._notify_non_blocking_subs(event, subs)
-
-    async def _send_to_target(self, event: Event) -> None:
-        """Send source event to target and pre-target non-blocking subscribers."""
-        if self._target_conn is None:
-            # TODO: improve error handling
-            raise RuntimeError("Target connection is not established")
-            
-        # Send event to target service
-        await self._target_conn.send_event(event)
-
-        # Search for non-blocking pre-target subscribers
-        key = (SubscriptionEvent(event.type), SubscriptionStage.PRE_TARGET, SubscriptionMode.NON_BLOCKING)
-        subs = self._subscriptions.get(key, [])
-
-        if subs:
-            if not AudioChunk.is_type(event.type):
-                _LOGGER.debug("Sending event to %d source observer processors for event %s", len(subs), event.type)
-            await self._notify_non_blocking_subs(event, subs)
+        _LOGGER.debug("Sending event to source: %s", event.type)
+        await self._source.send_event(event)
+        await self._handle_non_blocking_flow(SubscriptionStage.POST_TARGET, event)
+    
 
     def _attach_tracking_info(self, event: Event, tracking_id: TrackingId, processor_id: ProcessorId) -> Event:
         """Clone the event with correlation ID and processor ID data."""

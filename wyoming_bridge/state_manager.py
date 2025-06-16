@@ -4,7 +4,7 @@ import asyncio
 import logging
 from abc import ABC, abstractmethod
 from enum import Enum, auto
-from typing import Optional, Dict, Callable, Awaitable, Type, Any
+from typing import Optional, Dict, Callable, Awaitable
 from dataclasses import dataclass
 
 _LOGGER = logging.getLogger("state")
@@ -40,10 +40,8 @@ class StateMachine:
         self.name = name
         self._state = initial_state
         self._state_changed = asyncio.Event()
-        self._transitions: Dict[BaseState,
-                                Dict[BaseState, StateTransition]] = {}
-        self._state_handlers: Dict[BaseState,
-                                   Callable[[], Awaitable[None]]] = {}
+        self._transitions: Dict[BaseState, Dict[BaseState, StateTransition]] = {}
+        self._state_handlers: Dict[BaseState, Callable[[], Awaitable[None]]] = {}
 
     @property
     def state(self) -> BaseState:
