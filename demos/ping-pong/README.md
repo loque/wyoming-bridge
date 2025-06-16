@@ -5,7 +5,7 @@ observer and enricher processors. It demonstrates how an observer processor—a
 simple logger in this case—can receive and log all Wyoming events passing
 through the bridge without affecting the event flow. It also shows how an
 enricher processor—a basic speaker ID processor—can enrich event data before it
-is sent back to the source. This setup helps verify that both types of
+is sent back to the server. This setup helps verify that both types of
 processors are correctly integrated and working as expected.
 
 ## Services
@@ -14,7 +14,7 @@ processors are correctly integrated and working as expected.
 - **wyoming-bridge**: The Wyoming bridge that connects the coordinator to the target.
 - **logger**: A simple observer processor that logs all events it receives.
 - **speaker_id**: An enricher processor that adds speaker ID information to Detection events.
-- **target**: A simple Wyoming target emulator that echoes events back to the source.
+- **target**: A simple Wyoming target emulator that echoes events back to the server.
 
 ## Usage
 
@@ -33,14 +33,14 @@ curl -X POST http://localhost:8080/event -H "Content-Type: application/json" -d 
 You should see the same event you sent being returned. The logs should look like this:
 
 ```bash
-wyoming-bridge-demo       | DEBUG  conns   Event handler connected to source: 46007404319262
+wyoming-bridge-demo       | DEBUG  conns   Event handler connected to server: 46007404319262
 wyoming-bridge-demo       | DEBUG  conns   Sending event down to target: audio-start
 wyoming-coordinator-demo  | 172.27.0.1 - - [06/Jun/2025 16:55:17] "POST /event HTTP/1.1" 201 -
 wyoming-target-demo       | INFO:target.handler:Returning event [audio-start]: {'rate': 16000, 'width': 2, 'channels': 1}
 wyoming-logger-demo       | INFO:logger.handler:Logging event [audio-start]: {'rate': 16000, 'width': 2, 'channels': 1}
 wyoming-bridge-demo       | DEBUG  conns   Sending event down to processor_logger: audio-start
 wyoming-bridge-demo       | DEBUG  conns   Received event from target: audio-start
-wyoming-bridge-demo       | DEBUG  conns   Sending event up to source: audio-start
+wyoming-bridge-demo       | DEBUG  conns   Sending event up to server: audio-start
 
 ```
 

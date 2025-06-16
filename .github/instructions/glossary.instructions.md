@@ -4,23 +4,23 @@ applyTo: "**"
 
 # WyomingBridge Glossary
 
-### **Source**
+### **Server**
 
 The Wyoming component connected to the bridge that initiates event flows.
 
 - Typically **Home Assistant**'s voice pipeline coordinator or a **Wyoming Satellite**.
 - Initiates events such as `audio-start`, `audio-chunk`, `detect`, etc.
-- The bridge forwards original events back to the Source after processing by the Target and any relevant Processors.
+- The bridge forwards original events back to the Server after processing by the Target and any relevant Processors.
 
 ### **Upstream**
 
-Refers generally to the direction _toward_ the Source.
+Refers to the direction _toward_ the Server.
 
 ### **Target**
 
 The primary Wyoming service that the bridge wraps.
 
-- Receives events originating from the Source (after optional preprocessing by processors).
+- Receives events originating from the Server (after optional preprocessing by processors).
 - Emits core output events expected by Assist (e.g. `detection` for wake-word phase).
 - Examples: `openWakeWord`, `faster-whisper`, `Piper`, etc.
 

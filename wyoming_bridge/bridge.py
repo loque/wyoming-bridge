@@ -130,7 +130,7 @@ class ProcessorTracker:
 
 class WyomingBridge(LifecycleManager):
     """
-    WyomingBridge serves as a bridge between the Wyoming target and the source
+    WyomingBridge serves as a bridge between the Wyoming target and the server
     (e.g.  Home Assistant).
     """
 
@@ -140,8 +140,9 @@ class WyomingBridge(LifecycleManager):
         _LOGGER.debug("Initializing WyomingBridge with settings: %s", settings)
         self.settings = settings
 
+
         # Connection managers
-        self._source = UpstreamConnection("source")
+        self._server = UpstreamConnection("server")
         self._target: Optional[WyomingTarget] = None
         self._processor_conns: Dict[ProcessorId, DownstreamConnection] = {}
 
@@ -153,7 +154,7 @@ class WyomingBridge(LifecycleManager):
     @property
     def event_handler_id(self) -> Optional[str]:
         """Get current event handler ID."""
-        return self._source.event_handler_id
+        return self._server.event_handler_id
 
     def _build_subscriptions_index(self) -> None:
         """Build indexed lookups for processor subscriptions."""
@@ -198,8 +199,8 @@ class WyomingBridge(LifecycleManager):
     async def _on_starting(self) -> None:
         """Handle STARTING state."""
 
-        # Start source connection
-        await self._source.start()
+        # Start server connection
+        await self._server.start()
 
         # Connect to all configured processors
         await self._connect_processors()
@@ -231,11 +232,11 @@ class WyomingBridge(LifecycleManager):
     # Connection management
     async def connect_upstream(self, event_handler_id: str, writer: asyncio.StreamWriter) -> None:
         """Set event writer."""
-        await self._source.connect_event_handler(event_handler_id, writer)
+        await self._server.connect_event_handler(event_handler_id, writer)
 
     async def disconnect_upstream(self) -> None:
         """Remove writer."""
-        await self._source.disconnect_event_handler()
+        await self._server.disconnect_event_handler()
 
     async def _connect_processors(self) -> None:
         """Establish connections to all configured processors."""
@@ -263,8 +264,8 @@ class WyomingBridge(LifecycleManager):
         # Stop processor connections
         await self._disconnect_processors()
 
-        # Stop source connection manager
-        await self._source.stop()
+        # Stop server connection manager
+        await self._server.stop()
 
         _LOGGER.debug("Disconnected from services")
 
@@ -278,8 +279,8 @@ class WyomingBridge(LifecycleManager):
         _LOGGER.debug("Disconnected from all processors")
 
     # Event handling
-    async def on_source_event(self, event: Event) -> None:
-        """Called when an event is received from source."""
+    async def on_server_event(self, event: Event) -> None:
+        """Called when an event is received from server."""
 
         # Explicit handler for Describe/Info flow
         if Describe.is_type(event.type):
@@ -288,7 +289,7 @@ class WyomingBridge(LifecycleManager):
                 
         if not AudioChunk.is_type(event.type):
             # Log all events except AudioChunk to avoid excessive logging
-            _LOGGER.debug("Event received from source: %s", event.type)
+            _LOGGER.debug("Event received from server: %s", event.type)
 
         # Check for pre_target blocking subscribers
         key = (SubscriptionEvent(event.type), SubscriptionStage.PRE_TARGET, SubscriptionMode.BLOCKING)
@@ -325,7 +326,7 @@ class WyomingBridge(LifecycleManager):
                                 uri=self.settings.target.uri,
                                 event_callback=self.on_target_event
                             )
-                        await self._send_to_source(received_event)
+                        await self._send_to_server(received_event)
                         break
 
         except Exception as error:
@@ -341,8 +342,8 @@ class WyomingBridge(LifecycleManager):
             _LOGGER.debug("Notify all post_target blocking subscribers (%d) for event %s", len(subs), event.type)
             await self._start_blocking_flow(SubscriptionStage.POST_TARGET, event, subs)
         else:
-            # No blocking subscriptions - send directly to source and non-blocking subscribers
-            await self._send_to_source(event)
+            # No blocking subscriptions - send directly to server and non-blocking subscribers
+            await self._send_to_server(event)
 
     async def on_processor_event(self, event: Event) -> None:
         """Called when an event is received from a processor, this event must be part of a blocking flow."""
@@ -408,21 +409,21 @@ class WyomingBridge(LifecycleManager):
         
         if tracker.is_complete():
             _LOGGER.debug("No blocking subscribers available, finalizing event immediately")
-            await self._end_blocking_flow(tracking_id, tracker)
+            await self._end_blocking_flow(tracking_id, tracker, stage)
 
-    async def _end_blocking_flow(self, tracking_id: TrackingId, tracker: ProcessorTracker) -> None:
+    async def _end_blocking_flow(self, tracking_id: TrackingId, tracker: ProcessorTracker, stage: SubscriptionStage) -> None:
         """Complete processor flow by merging responses and finalizing event."""
         _LOGGER.debug("Completing processor flow for tracking_id: %s with %d response(s)", tracking_id, len(tracker.processor_extensions))
 
         # Finalize the enriched event based on stage
-        if tracker.stage == SubscriptionStage.PRE_TARGET:
+        if stage == SubscriptionStage.PRE_TARGET:
             # To target
             enriched_event = tracker.get_processed_event()
             await self._send_to_target(enriched_event)
         else:
-            # To source
+            # To server
             self._update_all_input_text(tracker.get_extensions())
-            await self._send_to_source(tracker.original_event)
+            await self._send_to_server(tracker.original_event)
         
         # Clean up tracker
         del self._processor_trackers[tracking_id]
@@ -456,7 +457,7 @@ class WyomingBridge(LifecycleManager):
                     _LOGGER.exception("Error sending event to observer processors")
     
     async def _send_to_target(self, sent_event: Event) -> None:
-        """Send source event to target and pre-target non-blocking subscribers."""
+        """Send server event to target and pre-target non-blocking subscribers."""
 
         if not self._target:
             _LOGGER.debug("Target connection not found, cannot send event: %s", sent_event.type)
@@ -465,11 +466,11 @@ class WyomingBridge(LifecycleManager):
         await self._target.write_event(sent_event)
         await self._handle_non_blocking_flow(SubscriptionStage.PRE_TARGET, sent_event)
     
-    async def _send_to_source(self, event: Event) -> None:
-        """Send final event to source and post-target non-blocking subscribers."""
+    async def _send_to_server(self, event: Event) -> None:
+        """Send final event to server and post-target non-blocking subscribers."""
         
-        _LOGGER.debug("Sending event to source: %s", event.type)
-        await self._source.send_event(event)
+        _LOGGER.debug("Sending event to server: %s", event.type)
+        await self._server.send_event(event)
         await self._handle_non_blocking_flow(SubscriptionStage.POST_TARGET, event)
     
 

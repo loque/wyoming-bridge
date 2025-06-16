@@ -1,7 +1,7 @@
 - id: "logger"
   uri: "tcp://logger:9001"
   subscriptions:
-    # Source events
+    # Server events
     - event: "describe"
       stage: "pre_target"
     - event: "audio-start"
@@ -22,7 +22,7 @@
 - id: "speaker_id"
   uri: "tcp://speaker_id:9002"
   subscriptions:
-    # Source events
+    # Server events
     - event: "audio-start"
       stage: "pre_target"
     - event: "audio-chunk"

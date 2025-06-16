@@ -227,11 +227,11 @@ class UpstreamConnection(ConnectionManager):
                 _LOGGER.exception("Unexpected error sending event up to %s", self.name)
 
     async def _run_loop(self) -> None:
-        """Source doesn't need a continuous loop - events come via handler."""
+        """Server doesn't need a continuous loop - events come via handler."""
         # Just wait until stopped
         while self._is_running:
             await asyncio.sleep(1)
 
     async def _cleanup(self) -> None:
-        """Clean up source connection resources."""
+        """Clean up server connection resources."""
         await self.disconnect_event_handler()

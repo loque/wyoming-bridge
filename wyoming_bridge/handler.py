@@ -18,7 +18,7 @@ class WyomingBridgeEventHandler(AsyncEventHandler):
         self.event_handler_id = str(time.monotonic_ns())
 
     async def handle_event(self, event: Event) -> bool:
-        """Forward all events from the source to the bridge."""
+        """Forward all events from the server to the bridge."""
 
         # If there is no active connection, or if this is a new connection
         # taking over, (re)establish the upstream connection.
@@ -34,5 +34,5 @@ class WyomingBridgeEventHandler(AsyncEventHandler):
         # If self.bridge.event_handler_id == self.event_handler_id, it means this is the
         # current, recognized handler, so we just proceed.
 
-        await self.bridge.on_source_event(event)
+        await self.bridge.on_server_event(event)
         return True
