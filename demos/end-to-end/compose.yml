@@ -102,11 +102,14 @@ services:
       --model tiny-int8
       --beam-size 1
       --data-dir /data
+      --debug
     ports:
       - 10300:10300
     environment:
       - TZ=America/Argentina/Buenos_Aires
     restart: unless-stopped
+    volumes:
+      - whisper_data:/data
     networks:
       - services_net
 
@@ -118,8 +121,8 @@ services:
       - whisper
     ports:
       - "11000:11000"
-    extra_hosts: # Add this section
-      - "host.docker.internal:host-gateway" # Add this line
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     entrypoint: python3
     command: >
       -m wyoming_bridge
@@ -152,6 +155,8 @@ services:
       --max-piper-procs "1"
       --data-dir /data
     restart: unless-stopped
+    volumes:
+      - piper_data:/data
     networks:
       - services_net
 
@@ -171,3 +176,9 @@ services:
 networks:
   services_net:
     driver: bridge
+
+volumes:
+  whisper_data:
+    driver: local
+  piper_data:
+    driver: local
