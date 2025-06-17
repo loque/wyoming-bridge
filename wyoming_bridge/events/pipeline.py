@@ -27,10 +27,10 @@ Subscriptions = Dict[SubscriptionEventType, List[ProcessorEntry]]
 
 class Pipeline:
     """
-    Handles the complete pipeline of an event from source to destination.
+    Handles the event pipeline from source to destination.
     
     This class encapsulates the logic for:
-    1. Receiving source event
+    1. Starting the event processing pipeline
     2. Checking for blocking subscribers
     3. Processing blocking subscribers and collecting extensions
     4. Sending extensions to specific handler

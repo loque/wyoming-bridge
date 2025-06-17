@@ -11,7 +11,7 @@ from wyoming_bridge.connections.processor import ProcessorConnection
 from wyoming_bridge.connections.stt import WyomingSttConnection
 from wyoming_bridge.connections.target import WyomingTargetConnection
 from wyoming_bridge.connections.server import ServerConnection
-from wyoming_bridge.core.info import enrich_wyoming_info, read_service_type
+from wyoming_bridge.core.info import wrap_wyoming_info, read_service_type
 from wyoming_bridge.integrations.homeassistant import Homeassistant
 from wyoming_bridge.processors.types import Processors, ProcessorId, SubscriptionMode, SubscriptionStage
 from wyoming_bridge.events.pipeline import Pipeline, ProcessorEntry, Subscriptions
@@ -19,8 +19,6 @@ from wyoming_bridge.events.pipeline import Pipeline, ProcessorEntry, Subscriptio
 _LOGGER = logging.getLogger("bridge")
 
 class WyomingBridge:
-    """WyomingBridge serves as a bridge between the Wyoming target and the server (e.g.  Home Assistant)."""
-
     def __init__(self, target_uri: str, processors: Processors, hass: Homeassistant) -> None:
         _LOGGER.debug("Initializing WyomingBridge.")
         self._target_uri = target_uri
@@ -174,7 +172,7 @@ class WyomingBridge:
                     _LOGGER.debug("Received '%s' event from target.", received_event.type)
 
                     if Info.is_type(received_event.type):
-                        received_event = enrich_wyoming_info(received_event)
+                        received_event = wrap_wyoming_info(received_event)
                         target_type = read_service_type(received_event)
                         _LOGGER.debug("Target service type: %s", target_type)
                         if WyomingSttConnection.is_type(target_type):

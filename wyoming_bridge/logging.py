@@ -52,9 +52,7 @@ def configure_logger(name: str, level: Optional[str] = None):
     return logger
 
 def configure_loggers(args: argparse.Namespace):
-    """
-    Configure loggers for different groups based on command-line arguments.
-    """
+    """Configure loggers for different groups based on command-line arguments."""
     def get_level(attr, default=None):
         value = getattr(args, attr, None)
         return value if value is not None else default

@@ -9,8 +9,6 @@ from wyoming_bridge.core.bridge import WyomingBridge
 _LOGGER = logging.getLogger("main")
 
 class WyomingEventHandler(AsyncEventHandler):
-    """Handle Wyoming Bridge events."""
-
     def __init__(self, bridge: WyomingBridge, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 

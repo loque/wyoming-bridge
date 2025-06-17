@@ -8,7 +8,6 @@ from .target import WyomingTargetConnection
 _LOGGER = logging.getLogger("conns")
 
 class WyomingSttConnection(WyomingTargetConnection):
-
     def __init__(self, *args, **kwargs):
         super().__init__("stt", *args, **kwargs)
 

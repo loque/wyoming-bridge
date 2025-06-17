@@ -18,79 +18,67 @@ artifact = Artifact(
     version=__version__,
 )
 
-cache: Optional[Info] = None
-
 # TODO: improve this
 ServiceType = Literal['asr', 'tts', 'handle', 'intent', 'wake', 'mic', 'snd']
 service_types = ['asr', 'tts', 'handle', 'intent', 'wake', 'mic', 'snd']
 
-def enrich_wyoming_info(event: Event) -> Event:
-    """Enrich Wyoming info with target info."""
-    global cache
-
-    if cache is not None:
-        return cache.event()
+def wrap_wyoming_info(event: Event) -> Event:
+    """Wrap target Info with bridge's info."""
 
     target_info = Info.from_event(event)
     
     # Create a new Info object to avoid mutating the original
-    enriched_info = Info()
+    wrapped_info = Info()
     
     for service_type in service_types:
         services = getattr(target_info, service_type, [])
         if not services:
             continue
         
-        enriched_services = []
+        wrapped_services = []
         
         for service in services:
             # Create a copy of the service to avoid mutation
-            enriched_service = type(service).from_dict(service.to_dict())
+            wrapped_service = type(service).from_dict(service.to_dict())
             
             # Override artifact properties
-            enriched_service.version = artifact.version
-            enriched_service.installed = artifact.installed
-            enriched_service.attribution = artifact.attribution
+            wrapped_service.version = artifact.version
+            wrapped_service.installed = artifact.installed
+            wrapped_service.attribution = artifact.attribution
             
             # Prepend artifact name and description
-            enriched_service.name = artifact.name + (enriched_service.name or "")
-            enriched_service.description = (artifact.description or "") + (enriched_service.description or "")
+            wrapped_service.name = artifact.name + (wrapped_service.name or "")
+            wrapped_service.description = (artifact.description or "") + (wrapped_service.description or "")
             
-            enriched_services.append(enriched_service)
+            wrapped_services.append(wrapped_service)
         
-        setattr(enriched_info, service_type, enriched_services)
+        setattr(wrapped_info, service_type, wrapped_services)
     
     # Handle satellite separately as it's optional and singular
     if target_info.satellite is not None:
         # Create a copy of the satellite to avoid mutation
-        enriched_satellite = Satellite.from_dict(target_info.satellite.to_dict())
+        wrapped_satellite = Satellite.from_dict(target_info.satellite.to_dict())
 
         # Override artifact properties
-        enriched_satellite.version = artifact.version
-        enriched_satellite.installed = artifact.installed
-        enriched_satellite.attribution = artifact.attribution
+        wrapped_satellite.version = artifact.version
+        wrapped_satellite.installed = artifact.installed
+        wrapped_satellite.attribution = artifact.attribution
 
         # Prepend artifact name and description
-        enriched_satellite.name = artifact.name + (enriched_satellite.name or "")
-        enriched_satellite.description = (artifact.description or "") + (enriched_satellite.description or "")
+        wrapped_satellite.name = artifact.name + (wrapped_satellite.name or "")
+        wrapped_satellite.description = (artifact.description or "") + (wrapped_satellite.description or "")
 
-        enriched_info.satellite = enriched_satellite
+        wrapped_info.satellite = wrapped_satellite
 
-    cache = enriched_info
-    return cache.event()
-
-def reset_cache() -> None:
-    """Reset the global cache."""
-    global cache
-    cache = None
+    return wrapped_info.event()
 
 def read_service_type(event: Event) -> Optional[ServiceType]:
     """Read the service type from the event."""
-    target_info = Info.from_event(event)
+    info = Info.from_event(event)
 
     # Try to infer the service type from event data keys
     for service_type in service_types:
-        if getattr(target_info, service_type, None) is not None:
+        if getattr(info, service_type, None) is not None:
             return service_type  # type: ignore[return-value]
 
     return None

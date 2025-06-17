@@ -10,7 +10,6 @@ from wyoming.event import Event
 _LOGGER = logging.getLogger("conns")
 
 class WyomingTargetConnection(ABC):
-
     def __init__(self, target_type: str, uri: str, on_target_event: Callable[[Event], Awaitable[None]]):
         self._type = target_type
         self._uri = uri
