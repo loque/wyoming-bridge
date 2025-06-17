@@ -7,13 +7,12 @@ from functools import partial
 
 from wyoming.server import AsyncServer
 
-from wyoming_bridge.bridge import WyomingBridge
-from wyoming_bridge.loggers import configure_loggers
-from wyoming_bridge.processors import get_processors
-from wyoming_bridge.settings import BridgeSettings, ServiceSettings
+from wyoming_bridge.core.bridge import WyomingBridge
+from wyoming_bridge.events.handler import WyomingEventHandler
+from wyoming_bridge.integrations.homeassistant import Homeassistant
+from wyoming_bridge.logging import configure_loggers
+from wyoming_bridge.processors.config import get_processors
 
-
-from .handler import WyomingBridgeEventHandler
 from . import __version__
 
 _LOGGER = logging.getLogger("main")
@@ -30,7 +29,6 @@ def parse_arguments():
     parser.add_argument("--log-level-main", dest="log_level_main", default=None, help="Log level for main group (main, processors, handler)")
     parser.add_argument("--log-level-bridge", dest="log_level_bridge", default=None, help="Log level for bridge group")
     parser.add_argument("--log-level-conns", dest="log_level_conns", default=None, help="Log level for connections group")
-    parser.add_argument("--log-level-state", dest="log_level_state", default=None, help="Log level for state group")
     return parser.parse_args()
 
 async def main() -> None:
@@ -41,28 +39,21 @@ async def main() -> None:
     _LOGGER.info("Starting Wyoming Bridge version %s", __version__)
     _LOGGER.debug(args)
 
-    # Validate and load the configured processors
     processors = get_processors(args.processors_path)
-
-    bridge_settings = BridgeSettings(
-        target=ServiceSettings(
-            uri=args.target_uri,
-        ),
-        processors=processors,
-        hass_access_token=args.hass_access_token or "",
-        hass_url=args.hass_url or "",
+    hass = Homeassistant(
+        access_token=args.hass_access_token or "",
+        url=args.hass_url or "",
     )
 
-    # Initialize and start WyomingBridge
-    wyoming_bridge = WyomingBridge(bridge_settings)
-    wyoming_bridge_task = asyncio.create_task(
-        wyoming_bridge.run(), name="wyoming bridge")
+    # Initialize and create WyomingBridge task
+    wyoming_bridge = WyomingBridge(target_uri=args.target_uri, processors=processors, hass=hass)
+    wyoming_bridge_task = asyncio.create_task(wyoming_bridge.run(), name="wyoming bridge")
 
     # Initialize Wyoming server
     wyoming_server = AsyncServer.from_uri(args.uri)
 
     try:
-        await wyoming_server.run(partial(WyomingBridgeEventHandler, wyoming_bridge))
+        await wyoming_server.run(partial(WyomingEventHandler, wyoming_bridge))
     except KeyboardInterrupt:
         pass
     finally:

@@ -1,20 +1,20 @@
 from abc import ABC, abstractmethod
 import asyncio
 import logging
+from typing import Awaitable, Callable
 
 from wyoming.client import AsyncClient
 from wyoming.event import Event
 
-from .manager import EventCallback
 
 _LOGGER = logging.getLogger("conns")
 
-class WyomingTarget(ABC):
+class WyomingTargetConnection(ABC):
 
-    def __init__(self, target_type: str, uri: str, event_callback: EventCallback):
+    def __init__(self, target_type: str, uri: str, on_target_event: Callable[[Event], Awaitable[None]]):
         self._type = target_type
         self._uri = uri
-        self._event_callback = event_callback
+        self.on_target_event = on_target_event
 
         self._client = None
         self._is_connected = False
@@ -91,6 +91,9 @@ class WyomingTarget(ABC):
                 # Disconnected to trigger reconnection
                 await self._disconnect()
                 return
+            
+    def is_connected(self) -> bool:
+        return self._is_connected
 
     @abstractmethod
     async def _on_target_event(self, event: Event) -> None:

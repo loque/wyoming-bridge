@@ -14,7 +14,6 @@ class LoggerArgs:
     log_level_main: Optional[str] = None
     log_level_bridge: Optional[str] = None
     log_level_conns: Optional[str] = None
-    log_level_state: Optional[str] = None
 
     def __post_init__(self):
         # Normalize to uppercase and validate
@@ -23,7 +22,6 @@ class LoggerArgs:
             "log_level_main",
             "log_level_bridge",
             "log_level_conns",
-            "log_level_state",
         ]:
             value = getattr(self, field_name)
             if value is not None:
@@ -68,7 +66,6 @@ def configure_loggers(args: argparse.Namespace):
             log_level_main=get_level("log_level_main", None),
             log_level_bridge=get_level("log_level_bridge", None),
             log_level_conns=get_level("log_level_conns", None),
-            log_level_state=get_level("log_level_state", None),
         )
     except Exception as e:
         raise ValueError(f"Invalid logger arguments: {e}")
@@ -77,7 +74,6 @@ def configure_loggers(args: argparse.Namespace):
         "main": values.log_level_main or values.log_level_default,
         "bridge": values.log_level_bridge or values.log_level_default,
         "conns": values.log_level_conns or values.log_level_default,
-        "state": values.log_level_state or values.log_level_default,
     }
 
     for name, level in group_levels.items():

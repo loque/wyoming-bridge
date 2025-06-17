@@ -1,44 +1,18 @@
 import logging
 import os
+from typing import cast
+import json
 
 import yaml
-import json
 import jsonschema
-from enum import Enum
 
-from typing import List, TypedDict, cast, NewType
+from wyoming_bridge.processors.types import Processors, SubscriptionMode, SubscriptionStage
 
 _LOGGER = logging.getLogger("main")
 
-ProcessorId = NewType('ProcessorId', str)
-SubscriptionEvent = NewType('SubscriptionEvent', str)
-
-class SubscriptionStage(str, Enum):
-    PRE_TARGET = "pre_target"
-    POST_TARGET = "post_target"
-
-class SubscriptionMode(str, Enum):
-    BLOCKING = "blocking"
-    NON_BLOCKING = "non_blocking"
-
-class Subscription(TypedDict):
-    event: SubscriptionEvent
-    stage: SubscriptionStage
-    mode: SubscriptionMode
-
-class Processor(TypedDict):
-    id: ProcessorId
-    uri: str
-    subscriptions: List[Subscription]
-
-
-Processors = List[Processor]
-
 def validate_processors_config(processors: Processors) -> None:
-    """Validate processors config."""
-
     # Validate the processors configuration against a JSON schema.
-    schema_path = os.path.join(os.path.dirname(__file__), "processors.json")
+    schema_path = os.path.join(os.path.dirname(__file__), "schema.json")
     with open(schema_path, "r") as schema_file:
         # Remove any comments (jsonschema does not support them)
         schema_str = schema_file.read()

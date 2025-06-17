@@ -4,11 +4,11 @@ import time
 from wyoming.event import Event
 from wyoming.server import AsyncEventHandler
 
-from wyoming_bridge.bridge import WyomingBridge
+from wyoming_bridge.core.bridge import WyomingBridge
 
 _LOGGER = logging.getLogger("main")
 
-class WyomingBridgeEventHandler(AsyncEventHandler):
+class WyomingEventHandler(AsyncEventHandler):
     """Handle Wyoming Bridge events."""
 
     def __init__(self, bridge: WyomingBridge, *args, **kwargs) -> None:
@@ -29,7 +29,7 @@ class WyomingBridgeEventHandler(AsyncEventHandler):
                 self.bridge.event_handler_id,
                 self.event_handler_id
             )
-            await self.bridge.connect_upstream(self.event_handler_id, self.writer)
+            await self.bridge.bind_server_handler(self.event_handler_id, self.writer)
             
         # If self.bridge.event_handler_id == self.event_handler_id, it means this is the
         # current, recognized handler, so we just proceed.

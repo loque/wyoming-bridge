@@ -3,11 +3,11 @@ import logging
 from wyoming.event import Event
 from wyoming.asr import Transcript
 
-from .target import WyomingTarget
+from .target import WyomingTargetConnection
 
 _LOGGER = logging.getLogger("conns")
 
-class WyomingSttTarget(WyomingTarget):
+class WyomingSttConnection(WyomingTargetConnection):
 
     def __init__(self, *args, **kwargs):
         super().__init__("stt", *args, **kwargs)
@@ -26,4 +26,4 @@ class WyomingSttTarget(WyomingTarget):
             await self._disconnect()
         
         # TODO: maybe this should be handled by _listen_to_events?
-        await self._event_callback(event)
+        await self.on_target_event(event)

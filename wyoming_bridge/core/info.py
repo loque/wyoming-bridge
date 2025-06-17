@@ -3,7 +3,7 @@ from typing import Optional
 from wyoming.event import Event
 from wyoming.info import Artifact, Attribution, Info, Satellite
 
-from . import __version__
+from .. import __version__
 from typing import Optional, Literal
 
 artifact = Artifact(
