@@ -92,19 +92,20 @@ class ProcessorConnection:
                 await self.disconnect()
                 return None
         
-        # Wait for response if requested
+        # Ensure response_future is properly awaited and cleaned up
         if wait_for_response and response_future:
             try:
                 response = await asyncio.wait_for(response_future, timeout=timeout)
+                if response is None:
+                    _LOGGER.warning("Received None response from processor '%s' (request_id: %s)", self._processor_id, request_id)
                 return response
             except asyncio.TimeoutError:
                 _LOGGER.warning("Timeout waiting for response from processor '%s' (request_id: %s)", self._processor_id, request_id)
-                
-                # Clean up the pending response
                 self._cleanup_response(request_id)
                 return None
             except asyncio.CancelledError:
                 _LOGGER.debug("Response wait cancelled for processor '%s' (request_id: %s)", self._processor_id, request_id)
+                self._cleanup_response(request_id)
                 return None
         
         return None
