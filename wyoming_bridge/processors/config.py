@@ -11,10 +11,10 @@ from wyoming_bridge.processors.types import Processors, SubscriptionMode, Subscr
 _LOGGER = logging.getLogger("main")
 
 def validate_processors_config(processors: Processors) -> None:
-    # Validate the processors configuration against a JSON schema.
+    # Validate against JSON schema
     schema_path = os.path.join(os.path.dirname(__file__), "schema.json")
     with open(schema_path, "r") as schema_file:
-        # Remove any comments (jsonschema does not support them)
+        # Remove comments (jsonschema doesn't support them)
         schema_str = schema_file.read()
         # Remove lines starting with //
         schema_str = '\n'.join(
@@ -30,13 +30,12 @@ def validate_processors_config(processors: Processors) -> None:
             f"Processors configuration validation error: {err.message}")
         raise
 
-    # Set default values for mode if not present
+    # Set defaults and convert enum strings
     for proc in processors:
         for subscription in proc.get("subscriptions", []):
             if "mode" not in subscription:
                 subscription["mode"] = SubscriptionMode.NON_BLOCKING
-            # Ensure stage and mode are instances of the Enum
-            # YAML load might produce strings, so we convert them
+            # Convert YAML strings to Enums
             if isinstance(subscription.get("stage"), str):
                 subscription["stage"] = SubscriptionStage(subscription["stage"])
             if isinstance(subscription.get("mode"), str):

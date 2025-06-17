@@ -26,7 +26,6 @@ class WyomingBridge:
         self._hass = hass
         self._running = False
 
-        # Initialize connections
         self._server = ServerConnection()
         self._target: Optional[WyomingTargetConnection] = None
 
@@ -113,7 +112,7 @@ class WyomingBridge:
         await self.start()
         
         try:
-            # Just wait indefinitely for cancellation - all real work is event-driven, this cancellation event stops the loop and can be triggered externally using the `stop` method.
+            # Wait for stop signal - all work is event-driven
             self._stop_event = asyncio.Event()
             await self._stop_event.wait()
         except asyncio.CancelledError:

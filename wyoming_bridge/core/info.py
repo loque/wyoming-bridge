@@ -7,9 +7,7 @@ from .. import __version__
 from typing import Optional, Literal
 
 artifact = Artifact(
-    # Prefix for the target service name
     name="bridge-to-",
-    # Prefix for the target service description
     description="Wyoming Bridge to: ",
     attribution=Attribution(
         name="loque", url="https://github.com/loque/wyoming-bridge"
@@ -18,7 +16,7 @@ artifact = Artifact(
     version=__version__,
 )
 
-# TODO: improve this
+# TODO: use proper type definitions from Wyoming protocol
 ServiceType = Literal['asr', 'tts', 'handle', 'intent', 'wake', 'mic', 'snd']
 service_types = ['asr', 'tts', 'handle', 'intent', 'wake', 'mic', 'snd']
 
@@ -54,7 +52,7 @@ def wrap_wyoming_info(event: Event) -> Event:
         
         setattr(wrapped_info, service_type, wrapped_services)
     
-    # Handle satellite separately as it's optional and singular
+    # Handle satellite (optional and singular)
     if target_info.satellite is not None:
         # Create a copy of the satellite to avoid mutation
         wrapped_satellite = Satellite.from_dict(target_info.satellite.to_dict())

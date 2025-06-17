@@ -31,10 +31,7 @@ class LoggerArgs:
                 setattr(self, field_name, value_up)
 
 def configure_logger(name: str, level: Optional[str] = None):
-    """
-    Configure a logger with the specified name and level.
-    If no level is provided, it defaults to INFO.
-    """
+    """Configure a logger with the specified name and level."""
     logger = logging.getLogger(name)
     if not logger.hasHandlers():
         handler = logging.StreamHandler()

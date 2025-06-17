@@ -45,11 +45,9 @@ async def main() -> None:
         url=args.hass_url or "",
     )
 
-    # Initialize and create WyomingBridge task
     wyoming_bridge = WyomingBridge(target_uri=args.target_uri, processors=processors, hass=hass)
     wyoming_bridge_task = asyncio.create_task(wyoming_bridge.run(), name="wyoming bridge")
 
-    # Initialize Wyoming server
     wyoming_server = AsyncServer.from_uri(args.uri)
 
     try:
