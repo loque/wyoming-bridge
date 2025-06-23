@@ -1,4 +1,4 @@
-"""Mock Mic Play Client"""
+"""Mock Microphone Play Client"""
 
 import argparse
 import asyncio

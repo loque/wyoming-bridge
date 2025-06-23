@@ -4,8 +4,9 @@ import logging
 from wyoming.event import Event
 from wyoming.server import AsyncEventHandler
 
-from demos.mock_mic.streaming_server import StreamingServer
-from demos.mock_mic.command_server import CommandServer
+from microphone.command_server import CommandServer
+from microphone.streaming_server import StreamingServer
+
 
 _LOGGER = logging.getLogger(__name__)
 

@@ -1,5 +1,5 @@
-- id: "speaker_id"
-  uri: "tcp://speaker_id:9002"
+- id: "mock_speaker_id"
+  uri: "tcp://mock_speaker_id:9002"
   subscriptions:
     - event: "detection"
       stage: "post_target"

@@ -7,10 +7,7 @@ from wyoming.server import AsyncEventHandler
 from wyoming.wake import Detection
 from wyoming.asr import Transcript
 
-from .logger import configure_logger
-
-_LOGGER = logging.getLogger("handler")
-configure_logger("handler")
+_LOGGER = logging.getLogger(__name__)
 
 class EventHandler(AsyncEventHandler):
     """Handle Wyoming events."""

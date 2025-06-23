@@ -12,9 +12,9 @@ services:
     privileged: true
     network_mode: host
 
-  mock-mic:
-    build: ../mock_mic
-    container_name: ${PREFIX}-mock-mic
+  mock_microphone:
+    build: ../_mocks/microphone
+    container_name: ${PREFIX}-mock_microphone
     ports:
       - "10101:10101"
     restart: unless-stopped
@@ -59,13 +59,13 @@ services:
     ports:
       - "10700:10700"
     depends_on:
-      - mock-mic
+      - mock_microphone
       - playback
       - wakeword
     command: >
       --name satellite
       --uri tcp://0.0.0.0:10700
-      --mic-uri tcp://mock-mic:10101
+      --mic-uri tcp://mock_microphone:10101
       --snd-uri tcp://playback:10601
       --wake-uri tcp://wakeword:10400
       --wake-word-name ok_nabu
@@ -73,9 +73,9 @@ services:
     networks:
       - services-network
 
-  speaker_id:
-    build: ../ping-pong/speaker_id
-    container_name: ${PREFIX}-speakerid
+  mock_speaker_id:
+    build: ../_mocks/speaker_id
+    container_name: ${PREFIX}-mock_speaker_id
     ports:
       - "9002:9002"
     entrypoint: python3
@@ -109,7 +109,7 @@ services:
     build: ../../wyoming_bridge
     container_name: ${PREFIX}-bridge
     depends_on:
-      - speaker_id
+      - mock_speaker_id
       - whisper
     ports:
       - "11000:11000"
