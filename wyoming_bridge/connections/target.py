@@ -3,6 +3,7 @@ import asyncio
 import logging
 from typing import Awaitable, Callable
 
+from wyoming.audio import AudioChunk
 from wyoming.client import AsyncClient
 from wyoming.event import Event
 
@@ -10,8 +11,17 @@ from wyoming.event import Event
 _LOGGER = logging.getLogger("conns")
 
 class WyomingTargetConnection(ABC):
-    def __init__(self, target_type: str, uri: str, on_target_event: Callable[[Event], Awaitable[None]]):
-        self._type = target_type
+    TARGET_TYPE: str = ""
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if getattr(cls, "TARGET_TYPE", "") == "":
+            raise TypeError(
+                f"{cls.__name__} must define a class attribute TARGET_TYPE"
+            )
+        
+    def __init__(self, uri: str, on_target_event: Callable[[Event], Awaitable[None]]):
+        self._type = self.TARGET_TYPE
         self._uri = uri
         self.on_target_event = on_target_event
 
@@ -104,3 +114,18 @@ class WyomingTargetConnection(ABC):
     @abstractmethod
     def is_type(service_type: str | None) -> bool:
         pass
+
+    @staticmethod
+    def from_service_type(service_type: str | None) -> type["WyomingTargetConnection"]:
+        from wyoming_bridge.connections.asr import WyomingAsrConnection
+
+        subclasses = [
+            WyomingAsrConnection,
+            # Remaining target connection subclasses must be added here
+        ]
+
+        for subclass in subclasses:
+            if subclass.is_type(service_type):
+                return subclass
+            
+        raise ValueError(f"No target connection found for service type '{service_type}'")

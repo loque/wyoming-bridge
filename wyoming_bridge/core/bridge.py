@@ -8,7 +8,6 @@ from wyoming.event import Event
 from wyoming.info import Describe, Info
 
 from wyoming_bridge.connections.processor import ProcessorConnection
-from wyoming_bridge.connections.stt import WyomingSttConnection
 from wyoming_bridge.connections.target import WyomingTargetConnection
 from wyoming_bridge.connections.server import ServerConnection
 from wyoming_bridge.core.info import wrap_wyoming_info, read_service_type
@@ -173,13 +172,16 @@ class WyomingBridge:
                     if Info.is_type(received_event.type):
                         received_event = wrap_wyoming_info(received_event)
                         target_type = read_service_type(received_event)
-                        _LOGGER.debug("Target service type: %s", target_type)
-                        if WyomingSttConnection.is_type(target_type):
-                            self._target = WyomingSttConnection(
-                                uri=self._target_uri,
-                                on_target_event=self.on_target_event
-                            )
-                            self._build_event_flows()
+                        TargetConnection = WyomingTargetConnection.from_service_type(target_type)
+                        if TargetConnection is None:
+                            _LOGGER.error("No target connection found for service type '%s'", target_type)
+                            break
+
+                        self._target = TargetConnection(
+                            uri=self._target_uri,
+                            on_target_event=self.on_target_event
+                        )
+                        self._build_event_flows()
                         await self._server.write_event(received_event)
                         break
 

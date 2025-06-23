@@ -7,15 +7,17 @@ from .target import WyomingTargetConnection
 
 _LOGGER = logging.getLogger("conns")
 
-class WyomingSttConnection(WyomingTargetConnection):
+class WyomingAsrConnection(WyomingTargetConnection):
+    TARGET_TYPE = "asr"
+    
     def __init__(self, *args, **kwargs):
-        super().__init__("stt", *args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     @staticmethod
     def is_type(service_type: str | None) -> bool:
         if service_type is None:
             return False
-        return service_type == "stt" or service_type == "asr"
+        return service_type == "asr"
 
     async def _on_target_event(self, event: Event) -> None:
         """Handle events received from the target."""
