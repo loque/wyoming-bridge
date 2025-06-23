@@ -83,7 +83,8 @@ class WyomingTargetConnection(ABC):
         # Use lock to ensure thread-safe writing to target
         async with self._write_lock:
             try:
-                _LOGGER.debug("Sending event to target '%s': %s", self._type, event.type)
+                if not AudioChunk.is_type(event.type):
+                    _LOGGER.debug("Sending event to target '%s': %s", self._type, event.type)
                 await self._client.write_event(event)
             except Exception:
                 _LOGGER.exception("Failed to send event to target '%s'", self._type)

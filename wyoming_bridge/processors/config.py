@@ -24,7 +24,7 @@ def validate_processors_config(processors: Processors) -> None:
 
     try:
         jsonschema.validate(instance=processors, schema=schema)
-        _LOGGER.info("Processors configuration is valid.")
+        _LOGGER.info("Processors configuration is valid")
     except jsonschema.ValidationError as err:
         _LOGGER.error(
             f"Processors configuration validation error: {err.message}")
@@ -57,7 +57,7 @@ def load_processors(processors_config_path: str) -> Processors:
             _LOGGER.debug("Processors configuration loaded successfully.")
             return cast(Processors, processors)
     except FileNotFoundError:
-        _LOGGER.warning(f"Processors configuration file not found in {processors_config_path}. No processors will be loaded.")
+        _LOGGER.warning(f"Processors configuration file not found in {processors_config_path}. No processors will be loaded")
         return []
     except yaml.YAMLError as e:
         _LOGGER.error(f"Error parsing processors configuration: {e}")

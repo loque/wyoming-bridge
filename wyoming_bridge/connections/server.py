@@ -16,12 +16,12 @@ class ServerConnection:
     async def bind_event_handler(self, event_handler_id: str, writer: asyncio.StreamWriter) -> None:
         self.event_handler_id = event_handler_id
         self._writer = writer
-        _LOGGER.debug("Event handler connected.")
+        _LOGGER.debug("Server event handler has connected")
 
     async def unbind_event_handler(self) -> None:
         self.event_handler_id = None
         self._writer = None
-        _LOGGER.debug("Event handler disconnected.")
+        _LOGGER.debug("Server event handler has disconnected")
 
     async def write_event(self, event: Event) -> None:
         if self._writer is None:
@@ -34,6 +34,6 @@ class ServerConnection:
             await self.unbind_event_handler()
 
             if isinstance(err, ConnectionResetError):
-                _LOGGER.warning("Event handler disconnected unexpectedly")
+                _LOGGER.warning("Server event handler was disconnected unexpectedly")
             else:
                 _LOGGER.exception("Unexpected error sending event to server")

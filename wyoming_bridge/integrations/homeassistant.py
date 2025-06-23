@@ -29,7 +29,7 @@ class Homeassistant:
                         error_text = await response.text()
                         _LOGGER.error("Failed to update input_text '%s': %s", key, error_text)
                     else:
-                        _LOGGER.debug("input_text '%s' updated successfully.", key)
+                        _LOGGER.debug("input_text '%s' updated successfully", key)
         except Exception as e:
             _LOGGER.exception("Exception while updating input_text '%s': %s", key, e)
 

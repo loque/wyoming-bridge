@@ -57,7 +57,7 @@ class Pipeline:
         
         blocking_subs = self._blocking_subscriptions.get(SubscriptionEventType(event.type), [])
         if blocking_subs:
-            _LOGGER.debug("Found %d blocking subscribers for event %s.", len(blocking_subs), event.type)
+            _LOGGER.debug("Found %d blocking subscribers for event '%s'", len(blocking_subs), event.type)
             await self._handle_blocking_flow(event, blocking_subs)
         else:
             # No blocking subscriptions - send directly to destination
@@ -78,7 +78,7 @@ class Pipeline:
                 return None
             
 
-            _LOGGER.debug("Sending event to blocking subscription '%s'.", processor_id)
+            _LOGGER.debug("Sending event to blocking subscription '%s'", processor_id)
 
             try:
                 response = await conn.write_event(event, wait_for_response=True)
@@ -122,7 +122,7 @@ class Pipeline:
         
         non_blocking_subs = self._non_blocking_subscriptions.get(SubscriptionEventType(event.type), [])
         if non_blocking_subs:
-            _LOGGER.debug("Notifying %d non-blocking subscribers for event %s.", len(non_blocking_subs), event.type)
+            _LOGGER.debug("Notifying %d non-blocking subscribers for event '%s'", len(non_blocking_subs), event.type)
             
             # Create tasks to send event to all non-blocking subscribers
             tasks = []

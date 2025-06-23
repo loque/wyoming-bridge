@@ -80,10 +80,10 @@ class ProcessorConnection:
         # Use lock to ensure thread-safe writing to processor
         async with self._write_lock:
             try:
-                _LOGGER.debug("Sending event '%s' to processor '%s'.", event.type, self._processor_id,)
+                _LOGGER.debug("Sending event '%s' to processor '%s' (request_id: %s)", event.type, self._processor_id, request_id)
                 await self._client.write_event(event)
             except Exception:
-                _LOGGER.exception("Failed to send event '%s' to processor '%s'", event.type, self._processor_id)
+                _LOGGER.exception("Failed to send event '%s' to processor '%s' (request_id: %s)", event.type, self._processor_id, request_id)
 
                 # Clean up pending response if send failed
                 self._cleanup_response(request_id)
@@ -97,14 +97,14 @@ class ProcessorConnection:
             try:
                 response = await asyncio.wait_for(response_future, timeout=timeout)
                 if response is None:
-                    _LOGGER.warning("Received None response from processor '%s' (request_id: %s)", self._processor_id, request_id)
+                    _LOGGER.warning("Received empty response for event '%s' from processor '%s' (request_id: %s)", event.type, self._processor_id, request_id)
                 return response
             except asyncio.TimeoutError:
-                _LOGGER.warning("Timeout waiting for response from processor '%s' (request_id: %s)", self._processor_id, request_id)
+                _LOGGER.warning("Timeout waiting for response for event '%s' from processor '%s' (request_id: %s)", event.type, self._processor_id, request_id)
                 self._cleanup_response(request_id)
                 return None
             except asyncio.CancelledError:
-                _LOGGER.debug("Response wait cancelled for processor '%s' (request_id: %s)", self._processor_id, request_id)
+                _LOGGER.debug("Response wait for event '%s' cancelled for processor '%s' (request_id: %s)", event.type, self._processor_id, request_id)
                 self._cleanup_response(request_id)
                 return None
         

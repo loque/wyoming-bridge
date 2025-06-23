@@ -20,7 +20,7 @@ _LOGGER = logging.getLogger("bridge")
 
 class WyomingBridge:
     def __init__(self, target_uri: str, processors: Processors, hass: Homeassistant) -> None:
-        _LOGGER.debug("Initializing WyomingBridge.")
+        _LOGGER.debug("Initializing WyomingBridge")
         self._target_uri = target_uri
         self._processors = processors
         self._hass = hass
@@ -64,12 +64,12 @@ class WyomingBridge:
 
     def _build_event_flows(self) -> None:
         if not self._target:
-            _LOGGER.warning("No target connection available.")
+            _LOGGER.warning("No target connection available")
             self._downstream = None
             return
         
         if not self._server:
-            _LOGGER.warning("No server connection available.")
+            _LOGGER.warning("No server connection available")
             self._upstream = None
             return
 
@@ -143,7 +143,7 @@ class WyomingBridge:
             _LOGGER.debug("Event received from server: %s", event.type)
 
         if not self._downstream:
-            _LOGGER.warning("No downstream flow found.")
+            _LOGGER.warning("No downstream flow found")
             return
         
         await self._downstream.process_event(event)
@@ -159,7 +159,7 @@ class WyomingBridge:
         try:
             async with AsyncClient.from_uri(self._target_uri) as client:
                 await client.connect()
-                _LOGGER.debug("Sending '%s' event to target.", event.type)
+                _LOGGER.debug("Sending '%s' event to target", event.type)
                 await client.write_event(event)
 
                 while True:
@@ -168,7 +168,7 @@ class WyomingBridge:
                         _LOGGER.debug("Connection lost with target")
                         break
                     
-                    _LOGGER.debug("Received '%s' event from target.", received_event.type)
+                    _LOGGER.debug("Received '%s' event from target", received_event.type)
 
                     if Info.is_type(received_event.type):
                         received_event = wrap_wyoming_info(received_event)
