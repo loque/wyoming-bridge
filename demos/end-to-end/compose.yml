@@ -12,21 +12,14 @@ services:
     privileged: true
     network_mode: host
 
-  microphone:
-    build: https://github.com/rhasspy/wyoming-mic-external.git
-    container_name: ${PREFIX}-microphone
+  mock-mic:
+    build: ../mock_mic
+    container_name: ${PREFIX}-mock-mic
     ports:
-      - "10600:10600"
-    devices:
-      - /dev/snd:/dev/snd
-    group_add:
-      - audio
-    command:
-      - "--device"
-      - "${MICROPHONE_DEVICE:-sysdefault}"
+      - "10101:10101"
     restart: unless-stopped
     networks:
-      - services_net
+      - services-network
 
   playback:
     build: https://github.com/rhasspy/wyoming-snd-external.git
@@ -42,7 +35,7 @@ services:
       - "${PLAYBACK_DEVICE:-sysdefault}"
     restart: unless-stopped
     networks:
-      - services_net
+      - services-network
 
   wakeword:
     image: homeassistant/amd64-addon-openwakeword:latest
@@ -51,13 +44,14 @@ services:
     command: >
       -m wyoming_openwakeword
       --uri 'tcp://0.0.0.0:10400'
+      --preload-model ok_nabu
     ports:
       - 10400:10400
     environment:
       - TZ=America/Argentina/Buenos_Aires
     restart: unless-stopped
     networks:
-      - services_net
+      - services-network
 
   satellite:
     container_name: ${PREFIX}-satellite
@@ -65,20 +59,19 @@ services:
     ports:
       - "10700:10700"
     depends_on:
-      - microphone
+      - mock-mic
       - playback
       - wakeword
     command: >
       --name satellite
       --uri tcp://0.0.0.0:10700
-      --mic-uri tcp://microphone:10600
+      --mic-uri tcp://mock-mic:10101
       --snd-uri tcp://playback:10601
       --wake-uri tcp://wakeword:10400
       --wake-word-name ok_nabu
-      --debug
     restart: unless-stopped
     networks:
-      - services_net
+      - services-network
 
   speaker_id:
     build: ../ping-pong/speaker_id
@@ -90,7 +83,7 @@ services:
       -m speaker_id
       --uri tcp://0.0.0.0:9002
     networks:
-      - services_net
+      - services-network
 
   whisper: # stt
     container_name: ${PREFIX}-whisper
@@ -102,7 +95,6 @@ services:
       --model tiny-int8
       --beam-size 1
       --data-dir /data
-      --debug
     ports:
       - 10300:10300
     environment:
@@ -111,7 +103,7 @@ services:
     volumes:
       - whisper_data:/data
     networks:
-      - services_net
+      - services-network
 
   wyoming_bridge: # bridge between home assistant's pipeline and whisper
     build: ../../wyoming_bridge
@@ -136,7 +128,7 @@ services:
       - ./processors.yml:/app/processors.yml
     restart: unless-stopped
     networks:
-      - services_net
+      - services-network
 
   piper: # tts
     container_name: ${PREFIX}-piper
@@ -158,7 +150,7 @@ services:
     volumes:
       - piper_data:/data
     networks:
-      - services_net
+      - services-network
 
   ollama:
     container_name: ${PREFIX}-ollama
@@ -171,10 +163,10 @@ services:
       - TZ=America/Argentina/Buenos_Aires
     restart: unless-stopped
     networks:
-      - services_net
+      - services-network
 
 networks:
-  services_net:
+  services-network:
     driver: bridge
 
 volumes:
