@@ -39,7 +39,7 @@ async def send_event():
 
                 if response is not None:
                     break  # for
-        except (TimeoutError, OSError, Exception):
+        except (TimeoutError, OSError):
             # Sleep and try again
             await asyncio.sleep(1)
 
