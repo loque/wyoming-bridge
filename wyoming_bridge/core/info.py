@@ -76,7 +76,8 @@ def read_service_type(event: Event) -> Optional[ServiceType]:
 
     # Try to infer the service type from event data keys
     for service_type in service_types:
-        if getattr(info, service_type, None) is not None:
+        services = getattr(info, service_type, None)
+        if services:  # Check if the service list is not empty
             return service_type  # type: ignore[return-value]
 
     return None
