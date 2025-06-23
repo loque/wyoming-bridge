@@ -1,0 +1,67 @@
+services:
+  target:
+    build: ./target
+    image: wbdemo-pp-target
+    container_name: wyoming-target-demo
+    ports:
+      - "9000:9000"
+    entrypoint: python3
+    command: >
+      -m target
+      --uri tcp://0.0.0.0:9000
+    restart: unless-stopped
+
+  logger:
+    build: ./logger
+    image: wbdemo-pp-logger
+    container_name: wyoming-logger-demo
+    ports:
+      - "9001:9001"
+    entrypoint: python3
+    command: >
+      -m logger
+      --uri tcp://0.0.0.0:9001
+    restart: unless-stopped
+
+  speaker_id:
+    build: ../_mocks/speaker_id
+    image: wbdemo-pp-speakerid
+    container_name: wbdemo-pp-speakerid
+    ports:
+      - "9002:9002"
+    entrypoint: python3
+    command: >
+      -m speaker_id
+      --uri tcp://0.0.0.0:9002
+
+  wyoming-bridge:
+    build: ../../wyoming_bridge
+    image: wbdemo-pp-bridge
+    container_name: wyoming-bridge-demo
+    depends_on:
+      - logger
+      - speaker_id
+      - target
+    ports:
+      - "11000:11000"
+    entrypoint: python3
+    command: >
+      -m wyoming_bridge
+      --uri tcp://0.0.0.0:11000
+      --target-uri tcp://target:9000
+      --log-level-conns DEBUG
+    volumes:
+      - ./processors.yml:/app/processors.yml
+    restart: unless-stopped
+
+  coordinator:
+    build: ./coordinator
+    image: wbdemo-pp-coordinator
+    container_name: wyoming-coordinator-demo
+    depends_on:
+      - wyoming-bridge
+    ports:
+      - "8080:8080"
+    environment:
+      - BRIDGE_URI=tcp://wyoming-bridge:11000
+    restart: unless-stopped

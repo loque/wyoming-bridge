@@ -1,0 +1,172 @@
+services:
+  homeassistant:
+    container_name: ${PREFIX}-homeassistant
+    image: "ghcr.io/home-assistant/home-assistant:stable"
+    ports:
+      - "8123:8123"
+    volumes:
+      - ./homeassistant/config:/config
+      - /etc/localtime:/etc/localtime:ro
+      - /run/dbus:/run/dbus:ro
+    restart: unless-stopped
+    privileged: true
+    network_mode: host
+
+  mock_microphone:
+    build: ../_mocks/microphone
+    container_name: ${PREFIX}-mock_microphone
+    ports:
+      - "10101:10101"
+    restart: unless-stopped
+    networks:
+      - services-network
+
+  mock_playback:
+    build: ../_mocks/playback
+    container_name: ${PREFIX}-mock_playback
+    volumes:
+      - ./playback/output:/app/playback/output
+    ports:
+      - "10102:10102"
+    restart: unless-stopped
+    networks:
+      - services-network
+
+  wakeword:
+    image: homeassistant/amd64-addon-openwakeword:latest
+    container_name: ${PREFIX}-wakeword
+    entrypoint: python3
+    command: >
+      -m wyoming_openwakeword
+      --uri 'tcp://0.0.0.0:10400'
+      --preload-model ok_nabu
+    ports:
+      - 10400:10400
+    environment:
+      - TZ=America/Argentina/Buenos_Aires
+    restart: unless-stopped
+    networks:
+      - services-network
+
+  satellite:
+    container_name: ${PREFIX}-satellite
+    build: https://github.com/rhasspy/wyoming-satellite.git
+    ports:
+      - "10700:10700"
+    depends_on:
+      - mock_microphone
+      - mock_playback
+      - wakeword
+    command: >
+      --name satellite
+      --uri tcp://0.0.0.0:10700
+      --mic-uri tcp://mock_microphone:10101
+      --snd-uri tcp://mock_playback:10102
+      --wake-uri tcp://wakeword:10400
+      --wake-word-name ok_nabu
+      --debug
+    restart: unless-stopped
+    networks:
+      - services-network
+
+  mock_speaker_id:
+    build: ../_mocks/speaker_id
+    container_name: ${PREFIX}-mock_speaker_id
+    ports:
+      - "9002:9002"
+    entrypoint: python3
+    command: >
+      -m speaker_id
+      --uri tcp://0.0.0.0:9002
+    networks:
+      - services-network
+
+  whisper: # stt
+    container_name: ${PREFIX}-whisper
+    image: homeassistant/amd64-addon-whisper:latest
+    entrypoint: python3
+    command: >
+      -m wyoming_faster_whisper
+      --uri tcp://0.0.0.0:10300
+      --model tiny-int8
+      --beam-size 1
+      --data-dir /data
+    ports:
+      - 10300:10300
+    environment:
+      - TZ=America/Argentina/Buenos_Aires
+    restart: unless-stopped
+    volumes:
+      - whisper_data:/data
+    networks:
+      - services-network
+
+  wyoming_bridge: # bridge between home assistant's pipeline and whisper
+    build: ../../wyoming_bridge
+    container_name: ${PREFIX}-bridge
+    depends_on:
+      - mock_speaker_id
+      - whisper
+    ports:
+      - "11000:11000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    entrypoint: python3
+    command: >
+      -m wyoming_bridge
+      --uri tcp://0.0.0.0:11000
+      --target-uri tcp://whisper:10300
+      --hass-access-token ${BRIDGE_ACCESS_TOKEN}
+      --hass-url http://host.docker.internal:8123
+      --log-level-bridge DEBUG
+      --log-level-conns DEBUG
+    volumes:
+      - ./processors.yml:/app/processors.yml
+    restart: unless-stopped
+    networks:
+      - services-network
+
+  piper: # tts
+    container_name: ${PREFIX}-piper
+    image: homeassistant/amd64-addon-piper:latest
+    ports:
+      - 10200:10200
+    entrypoint: python3
+    command: >
+      -m wyoming_piper
+      --piper '/usr/share/piper/piper'
+      --uri 'tcp://0.0.0.0:10200'
+      --length-scale "1"
+      --noise-scale "0.5"
+      --speaker "0"
+      --voice "en_US-lessac-medium"
+      --max-piper-procs "1"
+      --data-dir /data
+    restart: unless-stopped
+    volumes:
+      - piper_data:/data
+    networks:
+      - services-network
+
+  ollama:
+    container_name: ${PREFIX}-ollama
+    image: ollama/ollama:latest
+    volumes:
+      - ${OLLAMA_MODELS}:/root/.ollama/models
+    ports:
+      - 11434:11434
+    environment:
+      - TZ=America/Argentina/Buenos_Aires
+    restart: unless-stopped
+    networks:
+      - services-network
+
+networks:
+  services-network:
+    driver: bridge
+
+volumes:
+  whisper_data:
+    driver: local
+  piper_data:
+    driver: local

@@ -7,60 +7,51 @@ from functools import partial
 
 from wyoming.server import AsyncServer
 
-from wyoming_bridge.bridge import WyomingBridge
-from wyoming_bridge.processors import get_processors
-from wyoming_bridge.settings import BridgeSettings, ServiceSettings
-
-from .handler import WyomingBridgeEventHandler
+from wyoming_bridge.core.bridge import WyomingBridge
+from wyoming_bridge.events.handler import WyomingEventHandler
+from wyoming_bridge.integrations.homeassistant import Homeassistant
+from wyoming_bridge.logging import configure_loggers
+from wyoming_bridge.processors.config import get_processors
 
 from . import __version__
 
-_LOGGER = logging.getLogger()
+_LOGGER = logging.getLogger("main")
 
 def parse_arguments():
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--uri", help="unix:// or tcp://",
-                        default="tcp://0.0.0.0:11000")
-
-    parser.add_argument(
-        "--target-uri", help="URI of Wyoming target service")
-
-    parser.add_argument(
-        "--processors-path", help="Path to the processors configuration file", default="processors.yml")
-
-    parser.add_argument("--debug", action="store_true",
-                        help="Log DEBUG messages")
+    parser.add_argument("--uri", help="unix:// or tcp://", default="tcp://0.0.0.0:11000")
+    parser.add_argument("--target-uri", help="URI of Wyoming target service")
+    parser.add_argument("--hass-access-token", help="Access token for Home Assistant")
+    parser.add_argument("--hass-url", help="Home Assistant URL", default="http://homeassistant:8123")
+    parser.add_argument("--processors-path", help="Path to the processors configuration file", default="processors.yml")
+    parser.add_argument("--log-level", dest="log_level_default", default=None, help="Default log level (e.g. INFO, DEBUG)")
+    parser.add_argument("--log-level-main", dest="log_level_main", default=None, help="Log level for main group (main, processors, handler)")
+    parser.add_argument("--log-level-bridge", dest="log_level_bridge", default=None, help="Log level for bridge group")
+    parser.add_argument("--log-level-conns", dest="log_level_conns", default=None, help="Log level for connections group")
     return parser.parse_args()
-
 
 async def main() -> None:
     """Main function to run the Wyoming Bridge."""
     args = parse_arguments()
 
-    logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO)
+    configure_loggers(args)
+    _LOGGER.info("Starting Wyoming Bridge version %s", __version__)
     _LOGGER.debug(args)
 
-    # Validate and load the configured processors
     processors = get_processors(args.processors_path)
-
-    bridge_settings = BridgeSettings(
-        target=ServiceSettings(
-            uri=args.target_uri,
-        ),
-        processors=processors,
+    hass = Homeassistant(
+        access_token=args.hass_access_token or "",
+        url=args.hass_url or "",
     )
 
-    # Initialize and start WyomingBridge
-    wyoming_bridge = WyomingBridge(bridge_settings)
-    wyoming_bridge_task = asyncio.create_task(
-        wyoming_bridge.run(), name="wyoming bridge")
+    wyoming_bridge = WyomingBridge(target_uri=args.target_uri, processors=processors, hass=hass)
+    wyoming_bridge_task = asyncio.create_task(wyoming_bridge.run(), name="wyoming bridge")
 
-    # Initialize Wyoming server
     wyoming_server = AsyncServer.from_uri(args.uri)
 
     try:
-        await wyoming_server.run(partial(WyomingBridgeEventHandler, wyoming_bridge))
+        await wyoming_server.run(partial(WyomingEventHandler, wyoming_bridge))
     except KeyboardInterrupt:
         pass
     finally:
