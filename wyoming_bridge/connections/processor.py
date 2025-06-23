@@ -19,6 +19,7 @@ class ProcessorConnection:
         self._is_connected = False
         self._write_lock = asyncio.Lock()
         self._pending_responses: Dict[str, asyncio.Future[Event]] = {}
+        self._listen_task: Optional[asyncio.Task] = None
 
     async def _connect(self):
         try:
@@ -27,15 +28,30 @@ class ProcessorConnection:
             await self._client.connect()
             self._is_connected = True
 
+            # Start background task to listen for responses
+            self._listen_task = asyncio.create_task(
+                self._listen_to_events(),
+                name=f"processor_listener_{self._processor_id}"
+            )
+
             _LOGGER.info("Connected to processor '%s'", self._processor_id)
 
         except Exception:
             _LOGGER.exception("Failed to connect to processor '%s'", self._processor_id)
-            await self.disconnect()
+            await self._disconnect()
             raise
     
-    async def disconnect(self) -> None:
+    async def _disconnect(self) -> None:
         self._is_connected = False
+
+        # Cancel listener task
+        if self._listen_task and not self._listen_task.done():
+            self._listen_task.cancel()
+            try:
+                await self._listen_task
+            except asyncio.CancelledError:
+                pass
+        self._listen_task = None
 
         # Cancel any pending response futures
         for future in self._pending_responses.values():
@@ -51,6 +67,32 @@ class ProcessorConnection:
                 _LOGGER.exception("Error disconnecting from processor '%s'", self._processor_id)
             finally:
                 self._client = None
+    
+    async def _listen_to_events(self):
+        """Background task to read events from the processor and resolve pending futures."""
+        if not self._client:
+            return
+            
+        try:
+            while self._is_connected and self._client:
+                event = await self._client.read_event()
+                if event is None:
+                    _LOGGER.debug("Processor connection closed for '%s'", self._processor_id)
+                    break
+                    
+                # Check for request_id in event.data
+                request_id = event.data.get("request_id") if event.data else None
+                if request_id and request_id in self._pending_responses:
+                    future = self._pending_responses.pop(request_id)
+                    if not future.done():
+                        future.set_result(event)
+                        _LOGGER.debug("Resolved response future for processor '%s' (request_id: %s)", self._processor_id, request_id)
+                else:
+                    _LOGGER.debug("Received event from processor '%s' without matching request_id: %s", self._processor_id, event.type)
+                    
+        except Exception:
+            _LOGGER.exception("Error reading from processor '%s'", self._processor_id)
+            await self._disconnect()
     
     async def write_event(self, event: Event, wait_for_response: bool = False, timeout: float = 30.0) -> Optional[Event]:
         if not self._is_connected or not self._client:
@@ -89,7 +131,7 @@ class ProcessorConnection:
                 self._cleanup_response(request_id)
 
                 # Disconnected to trigger reconnection
-                await self.disconnect()
+                await self._disconnect()
                 return None
         
         # Ensure response_future is properly awaited and cleaned up
