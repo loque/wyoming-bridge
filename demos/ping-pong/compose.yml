@@ -24,7 +24,7 @@ services:
     restart: unless-stopped
 
   speaker_id:
-    build: ./speaker_id
+    build: ../_mocks/speaker_id
     image: wbdemo-pp-speakerid
     container_name: wbdemo-pp-speakerid
     ports:
