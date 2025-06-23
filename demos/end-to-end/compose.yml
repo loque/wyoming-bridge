@@ -21,18 +21,13 @@ services:
     networks:
       - services-network
 
-  playback:
-    build: https://github.com/rhasspy/wyoming-snd-external.git
-    container_name: ${PREFIX}-playback
+  mock_playback:
+    build: ../_mocks/playback
+    container_name: ${PREFIX}-mock_playback
+    volumes:
+      - ./playback/output:/app/playback/output
     ports:
-      - "10601:10601"
-    devices:
-      - /dev/snd:/dev/snd
-    group_add:
-      - audio
-    command:
-      - "--device"
-      - "${PLAYBACK_DEVICE:-sysdefault}"
+      - "10102:10102"
     restart: unless-stopped
     networks:
       - services-network
@@ -60,15 +55,16 @@ services:
       - "10700:10700"
     depends_on:
       - mock_microphone
-      - playback
+      - mock_playback
       - wakeword
     command: >
       --name satellite
       --uri tcp://0.0.0.0:10700
       --mic-uri tcp://mock_microphone:10101
-      --snd-uri tcp://playback:10601
+      --snd-uri tcp://mock_playback:10102
       --wake-uri tcp://wakeword:10400
       --wake-word-name ok_nabu
+      --debug
     restart: unless-stopped
     networks:
       - services-network
