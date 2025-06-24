@@ -2,7 +2,6 @@ import pytest
 from unittest.mock import AsyncMock
 
 from wyoming.event import Event
-from wyoming.tts import Synthesize
 
 from wyoming_bridge.connections.tts import WyomingTtsConnection
 
