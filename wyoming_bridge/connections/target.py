@@ -121,9 +121,11 @@ class WyomingTargetConnection(ABC):
     @staticmethod
     def from_service_type(service_type: str | None) -> type["WyomingTargetConnection"]:
         from wyoming_bridge.connections.asr import WyomingAsrConnection
+        from wyoming_bridge.connections.tts import WyomingTtsConnection
 
         subclasses = [
             WyomingAsrConnection,
+            WyomingTtsConnection,
             # Remaining target connection subclasses must be added here
         ]
 
