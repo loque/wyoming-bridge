@@ -17,7 +17,7 @@ class WyomingAsrConnection(WyomingTargetConnection):
     def is_type(service_type: str | None) -> bool:
         if service_type is None:
             return False
-        return service_type == "asr"
+        return service_type == WyomingAsrConnection.TARGET_TYPE
 
     async def _on_target_event(self, event: Event) -> None:
         """Handle events received from the target."""
@@ -25,6 +25,3 @@ class WyomingAsrConnection(WyomingTargetConnection):
 
         if Transcript.is_type(event.type):
             await self._disconnect()
-        
-        # TODO: maybe this should be handled by _listen_to_events?
-        await self.on_target_event(event)

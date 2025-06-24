@@ -73,6 +73,9 @@ class WyomingTargetConnection(ABC):
                     
                     # Handle target event
                     await self._on_target_event(event)
+
+                    if callable(self.on_target_event):
+                        await self.on_target_event(event)
                     
                 except Exception:
                     _LOGGER.exception("Error reading from target '%s'", self._type)

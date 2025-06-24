@@ -21,7 +21,6 @@ def make_event(event_type="test"):
 
 @pytest.mark.asyncio
 async def test_init_and_connect(monkeypatch):
-    dummy_event = make_event()
     on_event = AsyncMock()
     dummy = DummyTarget("dummy://uri", on_event)
 
@@ -77,6 +76,54 @@ async def test_listen_to_events(monkeypatch):
 
     await dummy._connect()
     await asyncio.sleep(0.05)
+    assert not dummy.is_connected()  # Should disconnect after None event
+
+@pytest.mark.asyncio
+async def test_listen_to_events_on_target_event_callable(monkeypatch):
+    """Test that _listen_to_events calls on_target_event when callable and handles non-callable gracefully."""
+    dummy_event = make_event()
+    
+    # Test with callable on_target_event
+    on_event = AsyncMock()
+    dummy = DummyTarget("dummy://uri", on_event)
+    
+    mock_client = MagicMock()
+    mock_client.connect = AsyncMock()
+    mock_client.disconnect = AsyncMock()
+    # Return an event, then None to end the loop
+    mock_client.read_event = AsyncMock(side_effect=[dummy_event, None])
+    mock_client.write_event = AsyncMock()
+    monkeypatch.setattr("wyoming.client.AsyncClient.from_uri", lambda uri: mock_client)
+
+    await dummy._connect()
+    await asyncio.sleep(0.05)  # Let background task run
+    
+    # Both _on_target_event (sets _handled_event) and on_target_event should be called
+    assert dummy._handled_event == dummy_event
+    on_event.assert_awaited_once_with(dummy_event)
+    assert not dummy.is_connected()  # Should disconnect after None event
+
+@pytest.mark.asyncio  
+async def test_listen_to_events_on_target_event_not_callable(monkeypatch):
+    """Test that _listen_to_events handles non-callable on_target_event gracefully."""
+    dummy_event = make_event()
+    
+    # Test with non-callable on_target_event
+    dummy = DummyTarget("dummy://uri", "not_callable") # type: ignore
+    
+    mock_client = MagicMock()
+    mock_client.connect = AsyncMock()
+    mock_client.disconnect = AsyncMock()
+    # Return an event, then None to end the loop
+    mock_client.read_event = AsyncMock(side_effect=[dummy_event, None])
+    mock_client.write_event = AsyncMock()
+    monkeypatch.setattr("wyoming.client.AsyncClient.from_uri", lambda uri: mock_client)
+
+    await dummy._connect()
+    await asyncio.sleep(0.05)  # Let background task run
+    
+    # _on_target_event should still be called, but no error should occur
+    assert dummy._handled_event == dummy_event
     assert not dummy.is_connected()  # Should disconnect after None event
 
 @pytest.mark.asyncio
