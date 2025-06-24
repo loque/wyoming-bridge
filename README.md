@@ -1,8 +1,8 @@
 # Wyoming Bridge
 
-**Wyoming Bridge** lets you plug custom services into Home Assistant's voice pipeline. It allows you to intercept, analyze, and enrich voice events with your own custom processing logic. For example, you could implement features like speaker identification or language detection and integrate them seamlessly into Home Assistant without modifying the core voice pipeline.
+**Wyoming Bridge** lets you plug custom services into Home Assistant's voice pipeline to intercept, analyze, and enrich voice events. For example, you could add speaker identification, language detection, or emotion analysis without modifying Home Assistant's core pipeline.
 
-It sits as a proxy between Home Assistant (the server) and your existing Wyoming services like openWakeWord or Piper (the target). You can configure the bridge to route events to your custom services (processors) either before or after they reach the target service, letting you add your own processing logic without modifying the core pipeline.
+It works as a proxy between Home Assistant and your existing Wyoming services (like openWakeWord or Piper). You can route events to your custom processors either before or after they reach the target service, giving you complete control over when and how your processing logic runs.
 
 <p align="center">⚠️🚧 EXPERIMENTAL & WORK IN PROGRESS 🚧⚠️</p>
 
