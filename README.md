@@ -4,7 +4,7 @@
 
 It sits as a proxy between Home Assistant (the server) and your existing Wyoming services like openWakeWord or Piper (the target). You can configure the bridge to route events to your custom services (processors) either before or after they reach the target service, letting you add your own processing logic without modifying the core pipeline.
 
-> <p align="center">⚠️🚧 EXPERIMENTAL & WORK IN PROGRESS 🚧⚠️</p>
+<p align="center">⚠️🚧 EXPERIMENTAL & WORK IN PROGRESS 🚧⚠️</p>
 
 ## Table of Contents
 
