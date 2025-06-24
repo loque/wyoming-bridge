@@ -124,12 +124,14 @@ class WyomingTargetConnection(ABC):
         from wyoming_bridge.connections.tts import WyomingTtsConnection
         from wyoming_bridge.connections.handle import WyomingHandleConnection
         from wyoming_bridge.connections.wake import WyomingWakeConnection
+        from wyoming_bridge.connections.mic import WyomingMicConnection
 
         subclasses = [
             WyomingAsrConnection,
             WyomingTtsConnection,
             WyomingHandleConnection,
-            WyomingWakeConnection
+            WyomingWakeConnection,
+            WyomingMicConnection
             # Remaining target connection subclasses must be added here
         ]
 
