@@ -1,11 +1,6 @@
-import logging
-
 from wyoming.event import Event
-from wyoming.asr import Transcript
 
 from .target import WyomingTargetConnection
-
-_LOGGER = logging.getLogger("conns")
 
 class WyomingTtsConnection(WyomingTargetConnection):
     TARGET_TYPE = "tts"
