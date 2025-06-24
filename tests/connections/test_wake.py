@@ -14,10 +14,10 @@ def tts_connection():
     return conn
 
 # Tests for is_type
-def test_is_type_tts():
+def test_is_type_wake():
     assert WyomingWakeConnection.is_type("wake") is True
 
-def test_is_type_not_tts():
+def test_is_type_not_wake():
     assert WyomingWakeConnection.is_type("asr") is False
 
 def test_is_type_none():

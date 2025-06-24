@@ -15,10 +15,10 @@ def asr_connection():
     return conn
 
 # Tests for is_type
-def test_is_type_asr():
+def test_is_type_handle():
     assert WyomingHandleConnection.is_type("handle") is True
 
-def test_is_type_not_asr():
+def test_is_type_not_handle():
     assert WyomingHandleConnection.is_type("tts") is False
 
 def test_is_type_none():
