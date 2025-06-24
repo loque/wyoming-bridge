@@ -255,7 +255,7 @@ Explore working examples to see Wyoming Bridge in action:
 
 Here are some ideas for future development:
 
-- **Expand Wyoming service support**: Add connections for every Wyoming service type (wake word detection, text-to-speech, etc.). Currently only ASR (Automatic Speech Recognition) is implemented
+- **Expand Wyoming service support**: Add support for all Wyoming service types, including the missing `intent` and `satellite` connections.
 - **Enhanced processor capabilities**: Allow blocking processors to manipulate core event parameters, such as adding compression to audio streams before sending them to the ASR service
 - **Improve demo documentation**: Enhance documentation and examples in the `demos/` directory to make it easier for developers to play with the Wyoming Bridge
 
