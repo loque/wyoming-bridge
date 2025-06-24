@@ -81,7 +81,7 @@ services:
     networks:
       - services-network
 
-  whisper: # stt
+  whisper:
     container_name: ${PREFIX}-whisper
     image: homeassistant/amd64-addon-whisper:latest
     entrypoint: python3
@@ -126,7 +126,7 @@ services:
     networks:
       - services-network
 
-  piper: # tts
+  piper:
     container_name: ${PREFIX}-piper
     image: homeassistant/amd64-addon-piper:latest
     ports:
